@@ -29,3 +29,8 @@ go.work.sum
 .idea/
 dist/
 go-template
+.cursor/commands
+.factory/commands
+.opencode/command
+.roo/commands
+openspec
