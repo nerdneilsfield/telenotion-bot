@@ -13,6 +13,7 @@ type Config struct {
 	Notion   Notion   `toml:"notion"`
 	GitHub   GitHub   `toml:"github"`
 	Title    Title    `toml:"title"`
+	Log      Log      `toml:"log"`
 }
 
 type Telegram struct {
@@ -36,6 +37,11 @@ type GitHub struct {
 type Title struct {
 	Timezone string `toml:"timezone"`
 	Format   string `toml:"format"`
+}
+
+type Log struct {
+	Level string `toml:"level"`
+	File  string `toml:"file"`
 }
 
 func Load(path string) (*Config, error) {
@@ -66,6 +72,9 @@ func (c *Config) Normalize() {
 	}
 	if c.Notion.TitleProperty == "" {
 		c.Notion.TitleProperty = "Name"
+	}
+	if c.Log.Level == "" {
+		c.Log.Level = "info"
 	}
 }
 

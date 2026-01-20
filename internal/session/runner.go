@@ -10,6 +10,7 @@ import (
 	"github.com/nerdneilsfield/telenotion-bot/internal/github"
 	"github.com/nerdneilsfield/telenotion-bot/internal/notion"
 	"github.com/nerdneilsfield/telenotion-bot/internal/tgclient"
+	"go.uber.org/zap"
 )
 
 type Runner struct {
@@ -19,9 +20,10 @@ type Runner struct {
 	github       *github.Client
 	stateMachine *StateMachine
 	mapper       *tgclient.Mapper
+	logger       *zap.Logger
 }
 
-func NewRunner(cfg *config.Config) (*Runner, error) {
+func NewRunner(cfg *config.Config, logger *zap.Logger) (*Runner, error) {
 	client, err := tgclient.NewClient(cfg.Telegram.Token)
 	if err != nil {
 		return nil, err
@@ -34,6 +36,7 @@ func NewRunner(cfg *config.Config) (*Runner, error) {
 		github:       github.NewClient(cfg.GitHub.Token, cfg.GitHub.Repo, cfg.GitHub.Branch, cfg.GitHub.PathPrefix),
 		stateMachine: NewStateMachine(),
 		mapper:       tgclient.NewMapper(),
+		logger:       logger,
 	}, nil
 }
 
@@ -78,14 +81,23 @@ func (r *Runner) handleUpdate(ctx context.Context, update tgbotapi.Update) error
 	case "/start":
 		if !r.stateMachine.IsActive(chatID) {
 			r.stateMachine.StartSession(chatID)
+			if r.logger != nil {
+				r.logger.Info("session started", zap.Int64("chat_id", chatID))
+			}
 		}
 	case "/clean":
 		if r.stateMachine.IsActive(chatID) {
 			r.stateMachine.ClearSession(chatID)
+			if r.logger != nil {
+				r.logger.Info("session cleared", zap.Int64("chat_id", chatID))
+			}
 		}
 	case "/discard":
 		if r.stateMachine.IsActive(chatID) {
 			r.stateMachine.DiscardSession(chatID)
+			if r.logger != nil {
+				r.logger.Info("session discarded", zap.Int64("chat_id", chatID))
+			}
 		}
 	case "/end":
 		if r.stateMachine.IsActive(chatID) {
@@ -93,6 +105,9 @@ func (r *Runner) handleUpdate(ctx context.Context, update tgbotapi.Update) error
 			if ok {
 				if err := r.createNotionPage(ctx, session); err != nil {
 					return err
+				}
+				if r.logger != nil {
+					r.logger.Info("session ended", zap.Int64("chat_id", chatID))
 				}
 			}
 		}

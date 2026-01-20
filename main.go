@@ -5,8 +5,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	loggerPkg "github.com/nerdneilsfield/shlogin/pkg/logger"
 	"github.com/nerdneilsfield/telenotion-bot/cmd"
+	"github.com/nerdneilsfield/telenotion-bot/internal/logging"
 	"go.uber.org/zap"
 )
 
@@ -16,19 +16,20 @@ var (
 	gitCommit = "unknown"
 )
 
-var logger *loggerPkg.Logger
+var logger *zap.Logger
 
 func init() {
-	logger = loggerPkg.GetLogger()
-	defer logger.SyncLogs()
-	defer logger.Close()
+	baseLogger, err := logging.NewLogger(logging.Config{Level: "info"})
+	if err == nil {
+		logger = baseLogger
+	}
 }
 
-// graceful shutdown
 func gracefulShutdown() {
-	logger.Info("Shutting down...")
-	logger.SyncLogs()
-	logger.Close()
+	if logger != nil {
+		logger.Info("Shutting down...")
+		logger.Sync()
+	}
 }
 
 func main() {
@@ -42,7 +43,9 @@ func main() {
 	}()
 
 	if err := cmd.Execute(version, buildTime, gitCommit); err != nil {
-		logger.Error("Failed to execute root command", zap.Error(err))
+		if logger != nil {
+			logger.Error("Failed to execute root command", zap.Error(err))
+		}
 		os.Exit(1)
 	}
 }

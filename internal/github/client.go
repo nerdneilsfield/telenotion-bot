@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Client struct {
@@ -54,27 +55,40 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) 
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
-	if err != nil {
-		return "", err
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
+		if err != nil {
+			return "", err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("Accept", "application/vnd.github+json")
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.client.Do(req)
+		if err != nil {
+			lastErr = err
+		} else {
+			_, _ = io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", c.repo, c.branch, path), nil
+			}
+			lastErr = fmt.Errorf("upload failed with status %d", resp.StatusCode)
+			if resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+				return "", lastErr
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(time.Duration(attempt+1) * 500 * time.Millisecond):
+		}
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	_, _ = io.ReadAll(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("upload failed with status %d", resp.StatusCode)
-	}
-
-	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", c.repo, c.branch, path), nil
+	return "", lastErr
 }
 
 func joinPath(prefix, name string) string {

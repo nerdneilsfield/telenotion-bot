@@ -3,14 +3,14 @@ package cmd
 import (
 	"fmt"
 
-	loggerPkg "github.com/nerdneilsfield/shlogin/pkg/logger"
+	"github.com/nerdneilsfield/telenotion-bot/internal/logging"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
 var (
 	verbose bool
-	logger  = loggerPkg.GetLogger()
+	logger  *zap.Logger
 )
 
 func newRootCmd(version string, buildTime string, gitCommit string) *cobra.Command {
@@ -21,12 +21,14 @@ func newRootCmd(version string, buildTime string, gitCommit string) *cobra.Comma
 			return cmd.Help()
 		},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			level := "info"
 			if verbose {
-				logger.SetVerbose(true)
-			} else {
-				logger.SetVerbose(false)
+				level = "debug"
 			}
-			logger.Reset()
+			newLogger, err := logging.NewLogger(logging.Config{Level: level})
+			if err == nil {
+				logger = newLogger
+			}
 		},
 	}
 
@@ -38,8 +40,17 @@ func newRootCmd(version string, buildTime string, gitCommit string) *cobra.Comma
 }
 
 func Execute(version string, buildTime string, gitCommit string) error {
+	if logger == nil {
+		baseLogger, err := logging.NewLogger(logging.Config{Level: "info"})
+		if err == nil {
+			logger = baseLogger
+		}
+	}
+
 	if err := newRootCmd(version, buildTime, gitCommit).Execute(); err != nil {
-		logger.Fatal("error executing root command: %w", zap.Error(err))
+		if logger != nil {
+			logger.Error("error executing root command", zap.Error(err))
+		}
 		return fmt.Errorf("error executing root command: %w", err)
 	}
 

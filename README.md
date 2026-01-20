@@ -39,6 +39,10 @@ path_prefix = "images/"
 [title]
 timezone = "Asia/Shanghai"
 format = "2006-01-02 15:04"
+
+[log]
+level = "info"
+file = ""
 ```
 
 ## Usage

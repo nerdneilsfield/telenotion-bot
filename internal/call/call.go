@@ -3,7 +3,7 @@ package call
 import (
 	"fmt"
 
-	"github.com/nerdneilsfield/go-template/pkg/example"
+	"github.com/nerdneilsfield/telenotion-bot/pkg/example"
 )
 
 type RowWiseMatrix struct {
