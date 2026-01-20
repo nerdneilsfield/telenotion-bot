@@ -20,6 +20,7 @@ type Client struct {
 	branch     string
 	pathPrefix string
 	client     *http.Client
+	now        func() time.Time
 }
 
 type createFileRequest struct {
@@ -35,6 +36,7 @@ func NewClient(token, repo, branch, pathPrefix string) *Client {
 		branch:     branch,
 		pathPrefix: pathPrefix,
 		client:     http.DefaultClient,
+		now:        time.Now,
 	}
 }
 
@@ -61,8 +63,12 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) 
 	}
 
 	var lastErr error
+	timestamp := ""
+	if c.now != nil {
+		timestamp = c.now().UTC().Format("20060102-150405")
+	}
 	for attempt := 0; attempt < 3; attempt++ {
-		namedFile := applyHashSuffix(filename, hashHex, attempt)
+		namedFile := applyHashSuffix(filename, hashHex, timestamp, attempt)
 		path := joinPath(c.pathPrefix, namedFile)
 		url := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", c.repo, path)
 
@@ -111,7 +117,7 @@ func joinPath(prefix, name string) string {
 	return trimmed + "/" + name
 }
 
-func applyHashSuffix(filename string, hash string, attempt int) string {
+func applyHashSuffix(filename string, hash string, timestamp string, attempt int) string {
 	ext := ""
 	name := filename
 	if idx := strings.LastIndex(filename, "."); idx > 0 {
@@ -120,8 +126,11 @@ func applyHashSuffix(filename string, hash string, attempt int) string {
 	}
 
 	suffix := hash
+	if timestamp != "" {
+		suffix = fmt.Sprintf("%s-%s", suffix, timestamp)
+	}
 	if attempt > 0 {
-		suffix = fmt.Sprintf("%s-%d", hash, attempt)
+		suffix = fmt.Sprintf("%s-%d", suffix, attempt)
 	}
 
 	if name == "" {

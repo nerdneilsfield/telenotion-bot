@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)
@@ -44,7 +45,9 @@ func TestUploadImage_Success(t *testing.T) {
 	if len(hashHex) > 8 {
 		hashHex = hashHex[:8]
 	}
-	expectedPath := "images/test-" + hashHex + ".jpg"
+	fixedNow := time.Date(2026, 1, 20, 0, 0, 0, 0, time.UTC)
+	timestamp := fixedNow.UTC().Format("20060102-150405")
+	expectedPath := "images/test-" + hashHex + "-" + timestamp + ".jpg"
 	expectedURL := "https://raw.githubusercontent.com/owner/repo/main/" + expectedPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +76,7 @@ func TestUploadImage_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient("token", "owner/repo", "main", "images/")
+	client.now = func() time.Time { return fixedNow }
 	client.client = &http.Client{
 		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			req.URL.Scheme = "http"
