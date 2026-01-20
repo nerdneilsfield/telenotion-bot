@@ -1,4 +1,4 @@
-# 🚀 Telegram to Notion Bot — 你的私人捕获小助手 ✨
+# 🚀 Telegram + Discord to Notion Bot — 你的私人捕获小助手 ✨
 
 [![Go 1.23](https://img.shields.io/badge/Go-1.23-blue?logo=go)](https://golang.org)
 [![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -12,7 +12,7 @@
 
 ## 👋 姐妹们！有个超好用的东西必须安利给你们！
 
-讲真！是不是每次在 Telegram 看到什么有用的信息，都得：
+讲真！是不是每次在 Telegram 或 Discord 看到什么有用的信息，都得：
 1. 复制粘贴到 Notion
 2. 手动调整格式
 3. 上传图片
@@ -24,7 +24,7 @@
 
 ## ✨ 这玩意儿能干嘛？
 
-**Telegram to Notion Bot** 就是你的私人捕获小助手：
+**Telegram + Discord to Notion Bot** 就是你的私人捕获小助手：
 
 | 超能力 | 说明 |
 |--------|------|
@@ -50,7 +50,26 @@
 
 **Markdown 支持**：`*粗体*` → ✅ | `_斜体_` → ✅ | `` `代码` `` → ✅ | ```代码块``` → ✅ | `[链接](url)` → ✅
 
-**图片处理**：直接发！自动下载 Telegram 图片 → 上传到 GitHub → 嵌入 Notion 🖼️
+**图片处理**：直接发！自动下载 Telegram/Discord 图片 → 上传到 GitHub → 嵌入 Notion 🖼️
+
+---
+
+## 🤖 机器人申请与使用（Telegram + Discord）
+
+### Telegram
+1. 用 `@BotFather` 创建机器人并获取 Token。
+2. 用 `@wczj_userinfo_bot` 获取你的 chat ID。
+3. 将 chat ID 写入 `allowed_chat_ids`。
+
+### Discord
+1. 在 Discord Developer Portal 创建应用并添加 Bot。
+2. 复制 Bot Token，并勾选 **Message Content Intent**。
+3. 邀请机器人时包含 `bot` + `applications.commands` 权限。
+4. 将你的用户 ID 写入 `allowed_user_ids`。
+
+### 使用方法（两端通用）
+- 私聊机器人输入 `/start`，发送消息或图片，最后 `/end`。
+- `/end` 后可直接发消息自动开启新会话。
 
 ---
 
@@ -108,6 +127,20 @@ token = "你的Telegram Bot Token"  # @BotFather 创建
 allowed_chat_ids = [123456789, 987654321]  # 允许使用机器人的群组/用户ID
 ```
 
+可以用 `@wczj_userinfo_bot` 获取 chat ID。
+
+### Discord 配置
+
+```toml
+[discord]
+token = "你的Discord Bot Token"  # Discord Developer Portal
+allowed_user_ids = ["123456789012345678"]  # 允许使用机器人的用户ID
+```
+
+Discord 设置说明：
+- 在 Discord Developer Portal 勾选 Message Content Intent。
+- 邀请机器人时包含 `applications.commands` 权限。
+
 ### Notion 配置
 
 ```toml
@@ -115,6 +148,7 @@ allowed_chat_ids = [123456789, 987654321]  # 允许使用机器人的群组/用�
 token = "你的Notion Integration Token"  # https://www.notion.so/my-integrations
 database_id = "你的数据库ID"  # 数据库 URL 中的一大串字符
 title_property = "Name"  # 数据库的标题字段名
+origin_property = "Origin"  # Select 字段，选项 Discord/Telegram
 ```
 
 ### GitHub 配置（图片托管）
@@ -149,9 +183,12 @@ file = ""        # 日志文件路径，留空则只输出到 stdout
 # 不需要 config.toml？没问题！
 export TELEGRAM_TOKEN="xxx"
 export TELEGRAM_ALLOWED_CHAT_IDS="123,456,789"
+export DISCORD_TOKEN="xxx"
+export DISCORD_ALLOWED_USER_IDS="123456789012345678"
 export NOTION_TOKEN="xxx"
 export NOTION_DATABASE_ID="xxx"
 export NOTION_TITLE_PROPERTY="Name"
+export NOTION_ORIGIN_PROPERTY="Origin"
 export GITHUB_TOKEN="xxx"
 export GITHUB_REPO="owner/repo"
 export GITHUB_BRANCH="main"
@@ -171,12 +208,15 @@ export LOG_FILE=""
 
 ### Step 1：开始捕获 ✨
 
+Telegram 或 Discord 私聊：
 ```
 /start
 ```
 
 机器人回复：
 > *"Session started. Send messages or images, then /end to save."* ✨
+
+在 `/end` 之后也可以不输入 `/start`，直接发消息会自动开启新会话。
 
 ### Step 2：开始发消息 📝
 
@@ -232,6 +272,7 @@ goimports -w .
 |------|------|
 | Go 1.23+ | 开发语言 |
 | Telegram Bot API | 消息接收 |
+| Discord API | Slash 命令 + 私聊捕获 |
 | Notion API | 页面创建 |
 | GitHub Contents API | 图片托管 |
 | Zap | 结构化日志 |
@@ -292,4 +333,4 @@ MIT License — **免费！开源！随便用！** 🎊
 
 **Made with ❤️ and a lot of ☕**
 
-*你的 Telegram → Notion 桥梁，正在为你服务~* 🚀
+*你的 Telegram/Discord → Notion 桥梁，正在为你服务~* 🚀

@@ -16,8 +16,10 @@ type CodeBlock struct {
 }
 
 type ImageBlock struct {
-	FileID  string
-	Caption string
+	FileID   string
+	FileURL  string
+	Filename string
+	Caption  string
 }
 
 func (t TextBlock) Kind() string {

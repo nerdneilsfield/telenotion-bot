@@ -12,6 +12,7 @@ import (
 
 type Config struct {
 	Telegram Telegram `toml:"telegram"`
+	Discord  Discord  `toml:"discord"`
 	Notion   Notion   `toml:"notion"`
 	GitHub   GitHub   `toml:"github"`
 	Title    Title    `toml:"title"`
@@ -23,10 +24,16 @@ type Telegram struct {
 	AllowedChatIDs []int64 `toml:"allowed_chat_ids"`
 }
 
+type Discord struct {
+	Token          string   `toml:"token"`
+	AllowedUserIDs []string `toml:"allowed_user_ids"`
+}
+
 type Notion struct {
-	Token         string `toml:"token"`
-	DatabaseID    string `toml:"database_id"`
-	TitleProperty string `toml:"title_property"`
+	Token          string `toml:"token"`
+	DatabaseID     string `toml:"database_id"`
+	TitleProperty  string `toml:"title_property"`
+	OriginProperty string `toml:"origin_property"`
 }
 
 type GitHub struct {
@@ -50,9 +57,12 @@ type Log struct {
 const (
 	EnvTelegramToken      = "TELEGRAM_TOKEN"
 	EnvTelegramAllowedIDs = "TELEGRAM_ALLOWED_CHAT_IDS"
+	EnvDiscordToken       = "DISCORD_TOKEN"
+	EnvDiscordAllowedIDs  = "DISCORD_ALLOWED_USER_IDS"
 	EnvNotionToken        = "NOTION_TOKEN"
 	EnvNotionDatabaseID   = "NOTION_DATABASE_ID"
 	EnvNotionTitleProp    = "NOTION_TITLE_PROPERTY"
+	EnvNotionOriginProp   = "NOTION_ORIGIN_PROPERTY"
 	EnvGitHubToken        = "GITHUB_TOKEN"
 	EnvGitHubRepo         = "GITHUB_REPO"
 	EnvGitHubBranch       = "GITHUB_BRANCH"
@@ -111,6 +121,13 @@ func (c *Config) applyEnvOverrides() {
 		c.Telegram.AllowedChatIDs = parseInt64List(v)
 	}
 
+	if v := os.Getenv(EnvDiscordToken); v != "" {
+		c.Discord.Token = v
+	}
+	if v := os.Getenv(EnvDiscordAllowedIDs); v != "" {
+		c.Discord.AllowedUserIDs = parseStringList(v)
+	}
+
 	// Notion
 	if v := os.Getenv(EnvNotionToken); v != "" {
 		c.Notion.Token = v
@@ -120,6 +137,9 @@ func (c *Config) applyEnvOverrides() {
 	}
 	if v := os.Getenv(EnvNotionTitleProp); v != "" {
 		c.Notion.TitleProperty = v
+	}
+	if v := os.Getenv(EnvNotionOriginProp); v != "" {
+		c.Notion.OriginProperty = v
 	}
 
 	// GitHub
@@ -169,6 +189,21 @@ func parseInt64List(s string) []int64 {
 	return result
 }
 
+func parseStringList(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
 func (c *Config) Normalize() {
 	if c.Title.Timezone == "" {
 		c.Title.Timezone = "Asia/Shanghai"
@@ -179,18 +214,40 @@ func (c *Config) Normalize() {
 	if c.Notion.TitleProperty == "" {
 		c.Notion.TitleProperty = "Name"
 	}
+	if c.Notion.OriginProperty == "" {
+		c.Notion.OriginProperty = "Origin"
+	}
 	if c.Log.Level == "" {
 		c.Log.Level = "info"
 	}
 }
 
 func (c *Config) Validate() error {
-	if c.Telegram.Token == "" {
-		return fmt.Errorf("telegram.token is required")
+	telegramEnabled := c.Telegram.Token != "" || len(c.Telegram.AllowedChatIDs) > 0
+	discordEnabled := c.Discord.Token != "" || len(c.Discord.AllowedUserIDs) > 0
+
+	if !telegramEnabled && !discordEnabled {
+		return fmt.Errorf("telegram or discord configuration is required")
 	}
-	if len(c.Telegram.AllowedChatIDs) == 0 {
-		return fmt.Errorf("telegram.allowed_chat_ids is required")
+
+	if telegramEnabled {
+		if c.Telegram.Token == "" {
+			return fmt.Errorf("telegram.token is required")
+		}
+		if len(c.Telegram.AllowedChatIDs) == 0 {
+			return fmt.Errorf("telegram.allowed_chat_ids is required")
+		}
 	}
+
+	if discordEnabled {
+		if c.Discord.Token == "" {
+			return fmt.Errorf("discord.token is required")
+		}
+		if len(c.Discord.AllowedUserIDs) == 0 {
+			return fmt.Errorf("discord.allowed_user_ids is required")
+		}
+	}
+
 	if c.Notion.Token == "" {
 		return fmt.Errorf("notion.token is required")
 	}

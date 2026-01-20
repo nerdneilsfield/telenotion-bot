@@ -16,7 +16,7 @@ var (
 func newRootCmd(version string, buildTime string, gitCommit string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "telenotion-bot",
-		Short: "telenotion-bot captures Telegram messages into Notion.",
+		Short: "telenotion-bot captures Telegram and Discord messages into Notion.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

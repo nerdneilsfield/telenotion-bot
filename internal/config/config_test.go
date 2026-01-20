@@ -17,6 +17,7 @@ allowed_chat_ids = [123456789]
 token = "notion-token"
 database_id = "database-id"
 title_property = "Name"
+origin_property = "Origin"
 
 [github]
 token = "github-token"
@@ -57,6 +58,9 @@ file = ""
 	}
 	if cfg.Notion.DatabaseID != "database-id" {
 		t.Errorf("DatabaseID = %q, want %q", cfg.Notion.DatabaseID, "database-id")
+	}
+	if cfg.Notion.OriginProperty != "Origin" {
+		t.Errorf("OriginProperty = %q, want %q", cfg.Notion.OriginProperty, "Origin")
 	}
 	if cfg.GitHub.Repo != "owner/repo" {
 		t.Errorf("GitHub.Repo = %q, want %q", cfg.GitHub.Repo, "owner/repo")
@@ -112,6 +116,9 @@ func TestNormalize(t *testing.T) {
 	if cfg.Notion.TitleProperty != "Name" {
 		t.Errorf("TitleProperty = %q, want %q", cfg.Notion.TitleProperty, "Name")
 	}
+	if cfg.Notion.OriginProperty != "Origin" {
+		t.Errorf("OriginProperty = %q, want %q", cfg.Notion.OriginProperty, "Origin")
+	}
 	if cfg.Log.Level != "info" {
 		t.Errorf("Log.Level = %q, want %q", cfg.Log.Level, "info")
 	}
@@ -123,6 +130,15 @@ func TestValidate_MissingToken(t *testing.T) {
 		cfg     Config
 		wantErr string
 	}{
+		{
+			name: "no platform configured",
+			cfg: Config{
+				Notion: Notion{Token: "token", DatabaseID: "id"},
+				GitHub: GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:  Title{Timezone: "UTC"},
+			},
+			wantErr: "telegram or discord configuration is required",
+		},
 		{
 			name: "missing telegram token",
 			cfg: Config{
@@ -142,6 +158,26 @@ func TestValidate_MissingToken(t *testing.T) {
 				Title:    Title{Timezone: "UTC"},
 			},
 			wantErr: "telegram.allowed_chat_ids is required",
+		},
+		{
+			name: "missing discord token",
+			cfg: Config{
+				Discord: Discord{AllowedUserIDs: []string{"user-1"}},
+				Notion:  Notion{Token: "token", DatabaseID: "id"},
+				GitHub:  GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:   Title{Timezone: "UTC"},
+			},
+			wantErr: "discord.token is required",
+		},
+		{
+			name: "missing discord allowlist",
+			cfg: Config{
+				Discord: Discord{Token: "token"},
+				Notion:  Notion{Token: "token", DatabaseID: "id"},
+				GitHub:  GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:   Title{Timezone: "UTC"},
+			},
+			wantErr: "discord.allowed_user_ids is required",
 		},
 		{
 			name: "missing notion token",
@@ -222,9 +258,23 @@ func TestValidate_MissingToken(t *testing.T) {
 func TestValidate_Valid(t *testing.T) {
 	cfg := Config{
 		Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
-		Notion:   Notion{Token: "token", DatabaseID: "id"},
+		Notion:   Notion{Token: "token", DatabaseID: "id", OriginProperty: "Origin"},
 		GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
 		Title:    Title{Timezone: "UTC"},
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Errorf("Validate() unexpected error = %v", err)
+	}
+}
+
+func TestValidate_ValidDiscordOnly(t *testing.T) {
+	cfg := Config{
+		Discord: Discord{Token: "token", AllowedUserIDs: []string{"user-1"}},
+		Notion:  Notion{Token: "token", DatabaseID: "id"},
+		GitHub:  GitHub{Token: "token", Repo: "repo", Branch: "main"},
+		Title:   Title{Timezone: "UTC"},
 	}
 
 	err := cfg.Validate()
@@ -271,9 +321,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 	// Set environment variables
 	os.Setenv(EnvTelegramToken, "env-telegram-token")
 	os.Setenv(EnvTelegramAllowedIDs, "111,222,333")
+	os.Setenv(EnvDiscordToken, "env-discord-token")
+	os.Setenv(EnvDiscordAllowedIDs, "user-1,user-2")
 	os.Setenv(EnvNotionToken, "env-notion-token")
 	os.Setenv(EnvNotionDatabaseID, "env-database-id")
 	os.Setenv(EnvNotionTitleProp, "Title")
+	os.Setenv(EnvNotionOriginProp, "Origin")
 	os.Setenv(EnvGitHubToken, "env-github-token")
 	os.Setenv(EnvGitHubRepo, "env-owner/env-repo")
 	os.Setenv(EnvGitHubBranch, "develop")
@@ -287,9 +340,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 		// Clean up environment variables
 		os.Unsetenv(EnvTelegramToken)
 		os.Unsetenv(EnvTelegramAllowedIDs)
+		os.Unsetenv(EnvDiscordToken)
+		os.Unsetenv(EnvDiscordAllowedIDs)
 		os.Unsetenv(EnvNotionToken)
 		os.Unsetenv(EnvNotionDatabaseID)
 		os.Unsetenv(EnvNotionTitleProp)
+		os.Unsetenv(EnvNotionOriginProp)
 		os.Unsetenv(EnvGitHubToken)
 		os.Unsetenv(EnvGitHubRepo)
 		os.Unsetenv(EnvGitHubBranch)
@@ -317,11 +373,20 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if len(cfg.Telegram.AllowedChatIDs) != 3 {
 		t.Errorf("AllowedChatIDs length = %d, want 3", len(cfg.Telegram.AllowedChatIDs))
 	}
+	if cfg.Discord.Token != "env-discord-token" {
+		t.Errorf("Discord.Token = %q, want %q", cfg.Discord.Token, "env-discord-token")
+	}
+	if len(cfg.Discord.AllowedUserIDs) != 2 {
+		t.Errorf("AllowedUserIDs length = %d, want 2", len(cfg.Discord.AllowedUserIDs))
+	}
 	if cfg.Notion.Token != "env-notion-token" {
 		t.Errorf("Notion.Token = %q, want %q", cfg.Notion.Token, "env-notion-token")
 	}
 	if cfg.Notion.DatabaseID != "env-database-id" {
 		t.Errorf("DatabaseID = %q, want %q", cfg.Notion.DatabaseID, "env-database-id")
+	}
+	if cfg.Notion.OriginProperty != "Origin" {
+		t.Errorf("OriginProperty = %q, want %q", cfg.Notion.OriginProperty, "Origin")
 	}
 	if cfg.GitHub.Token != "env-github-token" {
 		t.Errorf("GitHub.Token = %q, want %q", cfg.GitHub.Token, "env-github-token")
@@ -362,6 +427,27 @@ func TestParseInt64List(t *testing.T) {
 	}
 }
 
+func TestParseStringList(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{"a,b,c", []string{"a", "b", "c"}},
+		{"  a ,  b  ", []string{"a", "b"}},
+		{"", nil},
+		{",,", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseStringList(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("parseStringList(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestLoadFromEnv(t *testing.T) {
 	// Set required environment variables
 	os.Setenv(EnvTelegramToken, "env-token")
@@ -392,5 +478,43 @@ func TestLoadFromEnv(t *testing.T) {
 	}
 	if cfg.Notion.DatabaseID != "database-id" {
 		t.Errorf("DatabaseID = %q, want %q", cfg.Notion.DatabaseID, "database-id")
+	}
+	if cfg.Notion.OriginProperty != "Origin" {
+		t.Errorf("OriginProperty = %q, want %q", cfg.Notion.OriginProperty, "Origin")
+	}
+}
+
+func TestLoadFromEnvDiscordOnly(t *testing.T) {
+	os.Setenv(EnvDiscordToken, "discord-token")
+	os.Setenv(EnvDiscordAllowedIDs, "user-1")
+	os.Setenv(EnvNotionToken, "notion-token")
+	os.Setenv(EnvNotionDatabaseID, "database-id")
+	os.Setenv(EnvGitHubToken, "github-token")
+	os.Setenv(EnvGitHubRepo, "owner/repo")
+	os.Setenv(EnvGitHubBranch, "main")
+
+	defer func() {
+		os.Unsetenv(EnvDiscordToken)
+		os.Unsetenv(EnvDiscordAllowedIDs)
+		os.Unsetenv(EnvNotionToken)
+		os.Unsetenv(EnvNotionDatabaseID)
+		os.Unsetenv(EnvGitHubToken)
+		os.Unsetenv(EnvGitHubRepo)
+		os.Unsetenv(EnvGitHubBranch)
+	}()
+
+	cfg, err := LoadFromEnv()
+	if err != nil {
+		t.Fatalf("LoadFromEnv() error = %v", err)
+	}
+
+	if cfg.Discord.Token != "discord-token" {
+		t.Errorf("Discord.Token = %q, want %q", cfg.Discord.Token, "discord-token")
+	}
+	if cfg.Notion.DatabaseID != "database-id" {
+		t.Errorf("DatabaseID = %q, want %q", cfg.Notion.DatabaseID, "database-id")
+	}
+	if cfg.Notion.OriginProperty != "Origin" {
+		t.Errorf("OriginProperty = %q, want %q", cfg.Notion.OriginProperty, "Origin")
 	}
 }

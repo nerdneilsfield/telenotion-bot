@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/nerdneilsfield/telenotion-bot/internal/config"
@@ -47,11 +48,6 @@ func runBot(cmd *cobra.Command, args []string) error {
 
 	logger.Info("Starting bot", zap.String("config", configPath))
 
-	runner, err := session.NewRunner(cfg, logger)
-	if err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -63,5 +59,49 @@ func runBot(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
-	return runner.Run(ctx)
+	runners := make([]func(context.Context) error, 0, 2)
+	if cfg.Telegram.Token != "" {
+		telegramRunner, err := session.NewRunner(cfg, logger)
+		if err != nil {
+			return err
+		}
+		runners = append(runners, telegramRunner.Run)
+	}
+	if cfg.Discord.Token != "" {
+		discordRunner, err := session.NewDiscordRunner(cfg, logger)
+		if err != nil {
+			return err
+		}
+		runners = append(runners, discordRunner.Run)
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(runners))
+
+	for _, run := range runners {
+		wg.Add(1)
+		go func(run func(context.Context) error) {
+			defer wg.Done()
+			if err := run(ctx); err != nil {
+				errCh <- err
+			}
+		}(run)
+	}
+
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			cancel()
+			return err
+		}
+	case <-ctx.Done():
+		return nil
+	}
+
+	return nil
 }

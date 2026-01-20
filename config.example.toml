@@ -2,10 +2,15 @@
 token = "your-telegram-bot-token"
 allowed_chat_ids = [123456789]
 
+[discord]
+token = "your-discord-bot-token"
+allowed_user_ids = ["123456789012345678"]
+
 [notion]
 token = "your-notion-integration-token"
 database_id = "your-database-id"
 title_property = "Name"
+origin_property = "Origin"
 
 [github]
 token = "your-github-pat"

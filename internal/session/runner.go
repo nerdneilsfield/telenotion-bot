@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jomei/notionapi"
@@ -139,9 +140,13 @@ func (r *Runner) handleUpdate(ctx context.Context, update tgbotapi.Update) error
 			r.reply(chatID, "No active session. Use /start first.")
 		}
 	default:
-		if r.stateMachine.IsActive(chatID) {
-			r.collectMessage(update.Message)
+		if update.Message.Text != "" && strings.HasPrefix(update.Message.Text, "/") {
+			return nil
 		}
+		if !r.stateMachine.IsActive(chatID) {
+			r.stateMachine.StartSession(chatID)
+		}
+		r.collectMessage(update.Message)
 	}
 
 	return nil
@@ -214,40 +219,46 @@ func (r *Runner) createNotionPage(ctx context.Context, session *Session) error {
 	for _, block := range session.Blocks {
 		switch b := block.(type) {
 		case TextBlock:
+			richTexts := splitRichTextEntries(b.RichText)
 			blocks = append(blocks, &notionapi.ParagraphBlock{
 				BasicBlock: notionapi.BasicBlock{Object: "block", Type: "paragraph"},
-				Paragraph:  notionapi.Paragraph{RichText: b.RichText},
+				Paragraph:  notionapi.Paragraph{RichText: richTexts},
 			})
 		case CodeBlock:
 			language := b.Language
 			if language == "" {
 				language = "plain text"
 			}
+			richTexts := splitRichTextEntries([]notionapi.RichText{{Type: "text", Text: &notionapi.Text{Content: b.Content}}})
 			blocks = append(blocks, &notionapi.CodeBlock{
 				BasicBlock: notionapi.BasicBlock{Object: "block", Type: "code"},
 				Code: notionapi.Code{
-					RichText: []notionapi.RichText{
-						{Type: "text", Text: &notionapi.Text{Content: b.Content}},
-					},
+					RichText: richTexts,
 					Language: language,
 				},
 			})
 		case ImageBlock:
-			if b.FileID == "" {
-				continue
+			fileURL := b.FileURL
+			if fileURL == "" {
+				if b.FileID == "" {
+					continue
+				}
+				resolvedURL, err := r.telegram.GetFileURL(b.FileID)
+				if err != nil {
+					return err
+				}
+				fileURL = resolvedURL
 			}
 
-			fileURL, err := r.telegram.GetFileURL(b.FileID)
+			data, err := downloadURL(fileURL)
 			if err != nil {
 				return err
 			}
 
-			data, err := r.telegram.DownloadFile(fileURL)
-			if err != nil {
-				return err
+			filename := b.Filename
+			if filename == "" {
+				filename = fmt.Sprintf("%s.jpg", b.FileID)
 			}
-
-			filename := fmt.Sprintf("%s.jpg", b.FileID)
 			rawURL, err := r.github.UploadImage(ctx, data, filename)
 			if err != nil {
 				return err
@@ -275,6 +286,9 @@ func (r *Runner) createNotionPage(ctx context.Context, session *Session) error {
 	}
 
 	title := r.cfg.Title.FormatTime(loc)
-	_, err = r.notion.CreatePage(ctx, r.cfg.Notion.DatabaseID, r.cfg.Notion.TitleProperty, title, blocks)
+	if r.logger != nil {
+		r.logger.Info("creating notion page", zap.String("origin_property", r.cfg.Notion.OriginProperty), zap.String("origin", "Telegram"))
+	}
+	_, err = r.notion.CreatePage(ctx, r.cfg.Notion.DatabaseID, r.cfg.Notion.TitleProperty, r.cfg.Notion.OriginProperty, title, "Telegram", blocks)
 	return err
 }

@@ -1,4 +1,4 @@
-# 🚀 Telegram to Notion Bot — Your Personal Capture Assistant ✨
+# 🚀 Telegram & Discord to Notion Bot — Your Personal Capture Assistant ✨
 
 [![Go 1.23](https://img.shields.io/badge/Go-1.23-blue?logo=go)](https://golang.org)
 [![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -14,7 +14,7 @@
 
 ## 👋 Hey everyone! Gotta share something amazing with you!
 
-Listen... Every time you see something useful on Telegram, do you find yourself:
+Listen... Every time you see something useful on Telegram or Discord, do you find yourself:
 1. Copy-pasting to Notion
 2. Manually fixing the formatting
 3. Uploading images
@@ -26,7 +26,7 @@ Listen... Every time you see something useful on Telegram, do you find yourself:
 
 ## ✨ What can this thing do?
 
-**Telegram to Notion Bot** is your personal capture assistant:
+**Telegram & Discord to Notion Bot** is your personal capture assistant:
 
 | Superpower | Description |
 |------------|-------------|
@@ -52,7 +52,26 @@ Listen... Every time you see something useful on Telegram, do you find yourself:
 
 **Markdown Support**: `*bold*` → ✅ | `_italic_` → ✅ | `` `code` `` → ✅ | ```code block``` → ✅ | `[link](url)` → ✅
 
-**Image Handling**: Just send! Automatically download Telegram images → upload to GitHub → embed in Notion 🖼️
+**Image Handling**: Just send! Automatically download Telegram/Discord images → upload to GitHub → embed in Notion 🖼️
+
+---
+
+## 🤖 Bot Setup (Telegram + Discord)
+
+### Telegram
+1. Create a bot via `@BotFather` and copy the token.
+2. Get your chat ID via `@wczj_userinfo_bot`.
+3. Add the chat ID to `allowed_chat_ids`.
+
+### Discord
+1. Create an application in the Discord Developer Portal and add a Bot.
+2. Copy the bot token and enable **Message Content Intent**.
+3. Invite the bot with scopes: `bot` + `applications.commands`.
+4. Add your user ID to `allowed_user_ids`.
+
+### Usage (Both Platforms)
+- Use DM and run `/start`, send messages or images, then `/end`.
+- After `/end`, you can send messages directly to start a new session.
 
 ---
 
@@ -110,6 +129,20 @@ token = "YOUR_TELEGRAM_BOT_TOKEN"  # Create via @BotFather
 allowed_chat_ids = [123456789, 987654321]  # Allowed chat/group IDs
 ```
 
+You can get your chat ID via `@wczj_userinfo_bot`.
+
+### Discord Config
+
+```toml
+[discord]
+token = "YOUR_DISCORD_BOT_TOKEN"  # Discord Developer Portal
+allowed_user_ids = ["123456789012345678"]  # Allowed Discord user IDs
+```
+
+Discord setup notes:
+- Enable Message Content Intent in the Discord Developer Portal.
+- Invite the bot with `applications.commands` scope.
+
 ### Notion Config
 
 ```toml
@@ -117,6 +150,7 @@ allowed_chat_ids = [123456789, 987654321]  # Allowed chat/group IDs
 token = "YOUR_NOTION_INTEGRATION_TOKEN"  # https://www.notion.so/my-integrations
 database_id = "YOUR_DATABASE_ID"  # Long string in database URL
 title_property = "Name"  # Title field name in your database
+origin_property = "Origin"  # Select field with options Discord/Telegram
 ```
 
 ### GitHub Config (Image Hosting)
@@ -151,9 +185,12 @@ file = ""        # Log file path, empty = stdout only
 # Don't want config.toml? No problem!
 export TELEGRAM_TOKEN="xxx"
 export TELEGRAM_ALLOWED_CHAT_IDS="123,456,789"
+export DISCORD_TOKEN="xxx"
+export DISCORD_ALLOWED_USER_IDS="123456789012345678"
 export NOTION_TOKEN="xxx"
 export NOTION_DATABASE_ID="xxx"
 export NOTION_TITLE_PROPERTY="Name"
+export NOTION_ORIGIN_PROPERTY="Origin"
 export GITHUB_TOKEN="xxx"
 export GITHUB_REPO="owner/repo"
 export GITHUB_BRANCH="main"
@@ -173,12 +210,15 @@ export LOG_FILE=""
 
 ### Step 1: Start Capturing ✨
 
+Telegram or Discord DM:
 ```
 /start
 ```
 
 Bot replies:
 > *"Session started. Send messages or images, then /end to save."* ✨
+
+You can also skip `/start` after an `/end` and just send messages to begin a new session.
 
 ### Step 2: Start Sending Messages 📝
 
@@ -234,6 +274,7 @@ goimports -w .
 |------|---------|
 | Go 1.23+ | Development language |
 | Telegram Bot API | Message receiving |
+| Discord API | Slash commands + DM capture |
 | Notion API | Page creation |
 | GitHub Contents API | Image hosting |
 | Zap | Structured logging |
@@ -294,4 +335,4 @@ Hope this tool helps you save time on all that repetitive work!
 
 **Made with ❤️ and a lot of ☕**
 
-*Your Telegram → Notion bridge, serving you~* 🚀
+*Your Telegram/Discord → Notion bridge, serving you~* 🚀
