@@ -23,6 +23,8 @@ origin_property = "Origin"
 token = "github-token"
 repo = "owner/repo"
 branch = "main"
+telegram_branch = "tg"
+discord_branch = "discord"
 path_prefix = "images/"
 
 [title]
@@ -64,6 +66,12 @@ file = ""
 	}
 	if cfg.GitHub.Repo != "owner/repo" {
 		t.Errorf("GitHub.Repo = %q, want %q", cfg.GitHub.Repo, "owner/repo")
+	}
+	if cfg.GitHub.TelegramBranch != "tg" {
+		t.Errorf("GitHub.TelegramBranch = %q, want %q", cfg.GitHub.TelegramBranch, "tg")
+	}
+	if cfg.GitHub.DiscordBranch != "discord" {
+		t.Errorf("GitHub.DiscordBranch = %q, want %q", cfg.GitHub.DiscordBranch, "discord")
 	}
 	if cfg.Title.Timezone != "Asia/Shanghai" {
 		t.Errorf("Timezone = %q, want %q", cfg.Title.Timezone, "Asia/Shanghai")
@@ -121,6 +129,25 @@ func TestNormalize(t *testing.T) {
 	}
 	if cfg.Log.Level != "info" {
 		t.Errorf("Log.Level = %q, want %q", cfg.Log.Level, "info")
+	}
+}
+
+func TestGitHubBranchFallback(t *testing.T) {
+	g := GitHub{Branch: "main"}
+	if g.BranchForTelegram() != "main" {
+		t.Errorf("BranchForTelegram = %q, want %q", g.BranchForTelegram(), "main")
+	}
+	if g.BranchForDiscord() != "main" {
+		t.Errorf("BranchForDiscord = %q, want %q", g.BranchForDiscord(), "main")
+	}
+
+	g.TelegramBranch = "tg"
+	g.DiscordBranch = "dc"
+	if g.BranchForTelegram() != "tg" {
+		t.Errorf("BranchForTelegram = %q, want %q", g.BranchForTelegram(), "tg")
+	}
+	if g.BranchForDiscord() != "dc" {
+		t.Errorf("BranchForDiscord = %q, want %q", g.BranchForDiscord(), "dc")
 	}
 }
 
@@ -220,14 +247,24 @@ func TestValidate_MissingToken(t *testing.T) {
 			wantErr: "github.repo is required",
 		},
 		{
-			name: "missing github branch",
+			name: "missing github branch for telegram",
 			cfg: Config{
 				Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
 				Notion:   Notion{Token: "token", DatabaseID: "id"},
 				GitHub:   GitHub{Token: "token", Repo: "repo"},
 				Title:    Title{Timezone: "UTC"},
 			},
-			wantErr: "github.branch is required",
+			wantErr: "github.telegram_branch or github.branch is required",
+		},
+		{
+			name: "missing github branch for discord",
+			cfg: Config{
+				Discord: Discord{Token: "token", AllowedUserIDs: []string{"user-1"}},
+				Notion:  Notion{Token: "token", DatabaseID: "id"},
+				GitHub:  GitHub{Token: "token", Repo: "repo"},
+				Title:   Title{Timezone: "UTC"},
+			},
+			wantErr: "github.discord_branch or github.branch is required",
 		},
 		{
 			name: "invalid timezone",
@@ -269,11 +306,39 @@ func TestValidate_Valid(t *testing.T) {
 	}
 }
 
+func TestValidate_ValidTelegramBranchOverride(t *testing.T) {
+	cfg := Config{
+		Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+		Notion:   Notion{Token: "token", DatabaseID: "id"},
+		GitHub:   GitHub{Token: "token", Repo: "repo", TelegramBranch: "telegram"},
+		Title:    Title{Timezone: "UTC"},
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Errorf("Validate() unexpected error = %v", err)
+	}
+}
+
 func TestValidate_ValidDiscordOnly(t *testing.T) {
 	cfg := Config{
 		Discord: Discord{Token: "token", AllowedUserIDs: []string{"user-1"}},
 		Notion:  Notion{Token: "token", DatabaseID: "id"},
 		GitHub:  GitHub{Token: "token", Repo: "repo", Branch: "main"},
+		Title:   Title{Timezone: "UTC"},
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Errorf("Validate() unexpected error = %v", err)
+	}
+}
+
+func TestValidate_ValidDiscordBranchOverride(t *testing.T) {
+	cfg := Config{
+		Discord: Discord{Token: "token", AllowedUserIDs: []string{"user-1"}},
+		Notion:  Notion{Token: "token", DatabaseID: "id"},
+		GitHub:  GitHub{Token: "token", Repo: "repo", DiscordBranch: "discord"},
 		Title:   Title{Timezone: "UTC"},
 	}
 
@@ -330,6 +395,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	os.Setenv(EnvGitHubToken, "env-github-token")
 	os.Setenv(EnvGitHubRepo, "env-owner/env-repo")
 	os.Setenv(EnvGitHubBranch, "develop")
+	os.Setenv(EnvGitHubTelegramBranch, "env-tg")
+	os.Setenv(EnvGitHubDiscordBranch, "env-discord")
 	os.Setenv(EnvGitHubPathPrefix, "env-images/")
 	os.Setenv(EnvTitleTimezone, "America/New_York")
 	os.Setenv(EnvTitleFormat, "2006-01-02")
@@ -349,6 +416,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 		os.Unsetenv(EnvGitHubToken)
 		os.Unsetenv(EnvGitHubRepo)
 		os.Unsetenv(EnvGitHubBranch)
+		os.Unsetenv(EnvGitHubTelegramBranch)
+		os.Unsetenv(EnvGitHubDiscordBranch)
 		os.Unsetenv(EnvGitHubPathPrefix)
 		os.Unsetenv(EnvTitleTimezone)
 		os.Unsetenv(EnvTitleFormat)
@@ -396,6 +465,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.GitHub.Branch != "develop" {
 		t.Errorf("GitHub.Branch = %q, want %q", cfg.GitHub.Branch, "develop")
+	}
+	if cfg.GitHub.TelegramBranch != "env-tg" {
+		t.Errorf("GitHub.TelegramBranch = %q, want %q", cfg.GitHub.TelegramBranch, "env-tg")
+	}
+	if cfg.GitHub.DiscordBranch != "env-discord" {
+		t.Errorf("GitHub.DiscordBranch = %q, want %q", cfg.GitHub.DiscordBranch, "env-discord")
 	}
 	if cfg.Title.Timezone != "America/New_York" {
 		t.Errorf("Title.Timezone = %q, want %q", cfg.Title.Timezone, "America/New_York")

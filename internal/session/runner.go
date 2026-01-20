@@ -36,7 +36,7 @@ func NewRunner(cfg *config.Config, logger *zap.Logger) (*Runner, error) {
 		cfg:          cfg,
 		telegram:     client,
 		notion:       notion.NewClient(cfg.Notion.Token),
-		github:       github.NewClient(cfg.GitHub.Token, cfg.GitHub.Repo, cfg.GitHub.Branch, cfg.GitHub.PathPrefix),
+		github:       github.NewClient(cfg.GitHub.Token, cfg.GitHub.Repo, cfg.GitHub.BranchForTelegram(), cfg.GitHub.PathPrefix),
 		stateMachine: NewStateMachine(),
 		mapper:       tgclient.NewMapper(),
 		logger:       logger,

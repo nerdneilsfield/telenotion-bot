@@ -159,9 +159,13 @@ origin_property = "Origin"  # Select field with options Discord/Telegram
 [github]
 token = "YOUR_GITHUB_PAT"  # https://github.com/settings/tokens
 repo = "username/repo"     # e.g., "nerdneilsfield/my-images"
-branch = "main"            # Branch name
+branch = "main"            # Default branch
+telegram_branch = "telegram" # Optional per-platform branch
+discord_branch = "discord"   # Optional per-platform branch
 path_prefix = "images/"    # Image storage directory
 ```
+
+`telegram_branch`/`discord_branch` override `branch` when set.
 
 ### Title Format Config
 
@@ -194,6 +198,8 @@ export NOTION_ORIGIN_PROPERTY="Origin"
 export GITHUB_TOKEN="xxx"
 export GITHUB_REPO="owner/repo"
 export GITHUB_BRANCH="main"
+export GITHUB_TELEGRAM_BRANCH="telegram"
+export GITHUB_DISCORD_BRANCH="discord"
 export GITHUB_PATH_PREFIX="images/"
 export TITLE_TIMEZONE="Asia/Shanghai"
 export TITLE_FORMAT="2006-01-02 15:04"

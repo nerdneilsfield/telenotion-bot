@@ -37,7 +37,7 @@ func NewDiscordRunner(cfg *config.Config, logger *zap.Logger) (*DiscordRunner, e
 		cfg:          cfg,
 		discord:      client,
 		notion:       notion.NewClient(cfg.Notion.Token),
-		github:       github.NewClient(cfg.GitHub.Token, cfg.GitHub.Repo, cfg.GitHub.Branch, cfg.GitHub.PathPrefix),
+		github:       github.NewClient(cfg.GitHub.Token, cfg.GitHub.Repo, cfg.GitHub.BranchForDiscord(), cfg.GitHub.PathPrefix),
 		stateMachine: NewStateMachine(),
 		logger:       logger,
 	}, nil

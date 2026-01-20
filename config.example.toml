@@ -16,6 +16,8 @@ origin_property = "Origin"
 token = "your-github-pat"
 repo = "owner/repo"
 branch = "main"
+telegram_branch = "telegram"
+discord_branch = "discord"
 path_prefix = "images/"
 
 [title]

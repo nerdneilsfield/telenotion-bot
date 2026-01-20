@@ -157,9 +157,13 @@ origin_property = "Origin"  # Select 字段，选项 Discord/Telegram
 [github]
 token = "你的GitHub PAT"  # https://github.com/settings/tokens
 repo = "用户名/仓库名"    # 比如 "nerdneilsfield/my-images"
-branch = "main"          # 分支名
+branch = "main"          # 默认分支
+telegram_branch = "telegram" # Telegram 专用分支（可选）
+discord_branch = "discord"   # Discord 专用分支（可选）
 path_prefix = "images/"  # 图片存放目录
 ```
+
+设置 `telegram_branch`/`discord_branch` 后会覆盖 `branch`。
 
 ### 标题格式配置
 
@@ -192,6 +196,8 @@ export NOTION_ORIGIN_PROPERTY="Origin"
 export GITHUB_TOKEN="xxx"
 export GITHUB_REPO="owner/repo"
 export GITHUB_BRANCH="main"
+export GITHUB_TELEGRAM_BRANCH="telegram"
+export GITHUB_DISCORD_BRANCH="discord"
 export GITHUB_PATH_PREFIX="images/"
 export TITLE_TIMEZONE="Asia/Shanghai"
 export TITLE_FORMAT="2006-01-02 15:04"

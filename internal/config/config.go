@@ -37,10 +37,12 @@ type Notion struct {
 }
 
 type GitHub struct {
-	Token      string `toml:"token"`
-	Repo       string `toml:"repo"`
-	Branch     string `toml:"branch"`
-	PathPrefix string `toml:"path_prefix"`
+	Token          string `toml:"token"`
+	Repo           string `toml:"repo"`
+	Branch         string `toml:"branch"`
+	TelegramBranch string `toml:"telegram_branch"`
+	DiscordBranch  string `toml:"discord_branch"`
+	PathPrefix     string `toml:"path_prefix"`
 }
 
 type Title struct {
@@ -55,22 +57,24 @@ type Log struct {
 
 // Environment variable names for config overrides
 const (
-	EnvTelegramToken      = "TELEGRAM_TOKEN"
-	EnvTelegramAllowedIDs = "TELEGRAM_ALLOWED_CHAT_IDS"
-	EnvDiscordToken       = "DISCORD_TOKEN"
-	EnvDiscordAllowedIDs  = "DISCORD_ALLOWED_USER_IDS"
-	EnvNotionToken        = "NOTION_TOKEN"
-	EnvNotionDatabaseID   = "NOTION_DATABASE_ID"
-	EnvNotionTitleProp    = "NOTION_TITLE_PROPERTY"
-	EnvNotionOriginProp   = "NOTION_ORIGIN_PROPERTY"
-	EnvGitHubToken        = "GITHUB_TOKEN"
-	EnvGitHubRepo         = "GITHUB_REPO"
-	EnvGitHubBranch       = "GITHUB_BRANCH"
-	EnvGitHubPathPrefix   = "GITHUB_PATH_PREFIX"
-	EnvTitleTimezone      = "TITLE_TIMEZONE"
-	EnvTitleFormat        = "TITLE_FORMAT"
-	EnvLogLevel           = "LOG_LEVEL"
-	EnvLogFile            = "LOG_FILE"
+	EnvTelegramToken        = "TELEGRAM_TOKEN"
+	EnvTelegramAllowedIDs   = "TELEGRAM_ALLOWED_CHAT_IDS"
+	EnvDiscordToken         = "DISCORD_TOKEN"
+	EnvDiscordAllowedIDs    = "DISCORD_ALLOWED_USER_IDS"
+	EnvNotionToken          = "NOTION_TOKEN"
+	EnvNotionDatabaseID     = "NOTION_DATABASE_ID"
+	EnvNotionTitleProp      = "NOTION_TITLE_PROPERTY"
+	EnvNotionOriginProp     = "NOTION_ORIGIN_PROPERTY"
+	EnvGitHubToken          = "GITHUB_TOKEN"
+	EnvGitHubRepo           = "GITHUB_REPO"
+	EnvGitHubBranch         = "GITHUB_BRANCH"
+	EnvGitHubTelegramBranch = "GITHUB_TELEGRAM_BRANCH"
+	EnvGitHubDiscordBranch  = "GITHUB_DISCORD_BRANCH"
+	EnvGitHubPathPrefix     = "GITHUB_PATH_PREFIX"
+	EnvTitleTimezone        = "TITLE_TIMEZONE"
+	EnvTitleFormat          = "TITLE_FORMAT"
+	EnvLogLevel             = "LOG_LEVEL"
+	EnvLogFile              = "LOG_FILE"
 )
 
 func Load(path string) (*Config, error) {
@@ -152,6 +156,12 @@ func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv(EnvGitHubBranch); v != "" {
 		c.GitHub.Branch = v
 	}
+	if v := os.Getenv(EnvGitHubTelegramBranch); v != "" {
+		c.GitHub.TelegramBranch = v
+	}
+	if v := os.Getenv(EnvGitHubDiscordBranch); v != "" {
+		c.GitHub.DiscordBranch = v
+	}
 	if v := os.Getenv(EnvGitHubPathPrefix); v != "" {
 		c.GitHub.PathPrefix = v
 	}
@@ -222,6 +232,20 @@ func (c *Config) Normalize() {
 	}
 }
 
+func (g GitHub) BranchForTelegram() string {
+	if g.TelegramBranch != "" {
+		return g.TelegramBranch
+	}
+	return g.Branch
+}
+
+func (g GitHub) BranchForDiscord() string {
+	if g.DiscordBranch != "" {
+		return g.DiscordBranch
+	}
+	return g.Branch
+}
+
 func (c *Config) Validate() error {
 	telegramEnabled := c.Telegram.Token != "" || len(c.Telegram.AllowedChatIDs) > 0
 	discordEnabled := c.Discord.Token != "" || len(c.Discord.AllowedUserIDs) > 0
@@ -260,8 +284,11 @@ func (c *Config) Validate() error {
 	if c.GitHub.Repo == "" {
 		return fmt.Errorf("github.repo is required")
 	}
-	if c.GitHub.Branch == "" {
-		return fmt.Errorf("github.branch is required")
+	if telegramEnabled && c.GitHub.BranchForTelegram() == "" {
+		return fmt.Errorf("github.telegram_branch or github.branch is required")
+	}
+	if discordEnabled && c.GitHub.BranchForDiscord() == "" {
+		return fmt.Errorf("github.discord_branch or github.branch is required")
 	}
 	if _, err := time.LoadLocation(c.Title.Timezone); err != nil {
 		return fmt.Errorf("title.timezone is invalid: %w", err)
