@@ -2,8 +2,11 @@
 
 [![Go 1.23](https://img.shields.io/badge/Go-1.23-blue?logo=go)](https://golang.org)
 [![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/nerdneilsfield/telenotion-bot/build.yml?label=CI&branch=master)](https://github.com/nerdneilsfield/telenotion-bot/actions)
 [![Latest Release](https://img.shields.io/github/v/release/nerdneilsfield/telenotion-bot?color=orange)](https://github.com/nerdneilsfield/telenotion-bot/releases)
-[![GoReleaser](https://img.shields.io/github/actions/workflow/status/nerdneilsfield/telenotion-bot/goreleaser?label=CI)](https://github.com/nerdneilsfield/telenotion-bot/actions)
+[![Downloads](https://img.shields.io/github/downloads/nerdneilsfield/telenotion-bot/total)](https://github.com/nerdneilsfield/telenotion-bot/releases)
+[![Docker Image](https://img.shields.io/badge/Docker-ghcr.io%2Fnerdneilsfield%2Ftelenotion-bot-blue?logo=docker)](https://github.com/nerdneilsfield/telenotion-bot/pkgs/container/telenotion-bot)
+[![Go Report Card](https://goreportcard.com/badge/github.com/nerdneilsfield/telenotion-bot)](https://goreportcard.com/report/github.com/nerdneilsfield/telenotion-bot)
 
 ---
 
