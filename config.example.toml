@@ -20,6 +20,10 @@ telegram_branch = "telegram"
 discord_branch = "discord"
 path_prefix = "images/"
 
+[media]
+max_image_size_mb = 20
+allowed_image_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+
 [title]
 timezone = "Asia/Shanghai"
 format = "2006-01-02 15:04"

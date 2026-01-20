@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -30,6 +31,10 @@ const discordHelpText = "Commands:\n/start - start a new capture session\n/clean
 func NewDiscordRunner(cfg *config.Config, logger *zap.Logger) (*DiscordRunner, error) {
 	client, err := discordclient.NewClient(cfg.Discord.Token)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := ConfigureMedia(cfg); err != nil {
 		return nil, err
 	}
 
@@ -208,6 +213,27 @@ func (r *DiscordRunner) respondInteraction(s *discordgo.Session, i *discordgo.In
 	}
 }
 
+func (r *DiscordRunner) sendUserMessage(chatID int64, message string) {
+	if message == "" {
+		return
+	}
+
+	session := r.discord.Session()
+	channel, err := session.UserChannelCreate(strconv.FormatInt(chatID, 10))
+	if err != nil {
+		if r.logger != nil {
+			r.logger.Warn("failed to open dm channel", zap.Int64("chat_id", chatID), zap.Error(err))
+		}
+		return
+	}
+
+	if _, err := session.ChannelMessageSend(channel.ID, message); err != nil {
+		if r.logger != nil {
+			r.logger.Warn("failed to send dm message", zap.Int64("chat_id", chatID), zap.Error(err))
+		}
+	}
+}
+
 func (r *DiscordRunner) createNotionPage(ctx context.Context, session *Session) error {
 	loc, err := r.cfg.Title.Location()
 	if err != nil {
@@ -245,20 +271,22 @@ func (r *DiscordRunner) createNotionPage(ctx context.Context, session *Session) 
 			if b.FileURL == "" {
 				continue
 			}
-			data, err := downloadURL(b.FileURL)
+			data, extension, err := downloadImage(ctx, b.FileURL)
 			if err != nil {
+				if errors.Is(err, ErrImageTooLarge) {
+					r.sendUserMessage(session.ChatID, imageTooLargeMessage)
+					blocks = append(blocks, imagePlaceholderBlock(imageTooLargeMessage))
+					continue
+				}
+				if errors.Is(err, ErrUnsupportedImageType) {
+					r.sendUserMessage(session.ChatID, imageUnsupportedTypeMessage)
+					blocks = append(blocks, imagePlaceholderBlock(imageUnsupportedTypeMessage))
+					continue
+				}
 				return err
 			}
 
-			filename := b.Filename
-			if filename == "" {
-				if b.FileID != "" {
-					filename = b.FileID + ".jpg"
-				} else {
-					filename = "discord-image.jpg"
-				}
-			}
-			rawURL, err := r.github.UploadImage(ctx, data, filename)
+			rawURL, err := r.github.UploadImage(ctx, data, extension)
 			if err != nil {
 				return err
 			}

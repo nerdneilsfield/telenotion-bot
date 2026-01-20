@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +21,6 @@ type Client struct {
 	branch     string
 	pathPrefix string
 	client     *http.Client
-	now        func() time.Time
 }
 
 type createFileRequest struct {
@@ -35,21 +35,21 @@ func NewClient(token, repo, branch, pathPrefix string) *Client {
 		repo:       repo,
 		branch:     branch,
 		pathPrefix: pathPrefix,
-		client:     http.DefaultClient,
-		now:        time.Now,
+		client:     newHTTPClient(),
 	}
 }
 
-func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) (string, error) {
+func (c *Client) UploadImage(ctx context.Context, data []byte, extension string) (string, error) {
 	if c.repo == "" || c.branch == "" {
 		return "", fmt.Errorf("github repo and branch are required")
 	}
 
+	ext := normalizeExtension(extension)
 	hash := sha256.Sum256(data)
 	hashHex := hex.EncodeToString(hash[:])
-	if len(hashHex) > 8 {
-		hashHex = hashHex[:8]
-	}
+	filename := hashHex + ext
+	path := joinPath(c.pathPrefix, filename)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", c.repo, path)
 
 	payload := createFileRequest{
 		Message: "upload image",
@@ -62,16 +62,9 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) 
 		return "", err
 	}
 
+	rawURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", c.repo, c.branch, path)
 	var lastErr error
-	timestamp := ""
-	if c.now != nil {
-		timestamp = c.now().UTC().Format("20060102-150405")
-	}
 	for attempt := 0; attempt < 3; attempt++ {
-		namedFile := applyHashSuffix(filename, hashHex, timestamp, attempt)
-		path := joinPath(c.pathPrefix, namedFile)
-		url := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", c.repo, path)
-
 		req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
 		if err != nil {
 			return "", err
@@ -85,10 +78,13 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) 
 		if err != nil {
 			lastErr = err
 		} else {
-			_, _ = io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", c.repo, c.branch, path), nil
+				return rawURL, nil
+			}
+			if resp.StatusCode == http.StatusUnprocessableEntity {
+				return rawURL, nil
 			}
 			lastErr = fmt.Errorf("upload failed with status %d", resp.StatusCode)
 			if resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
@@ -106,6 +102,34 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) 
 	return "", lastErr
 }
 
+func newHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   5 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+		},
+	}
+}
+
+func normalizeExtension(extension string) string {
+	ext := strings.TrimSpace(extension)
+	if ext == "" {
+		return ".bin"
+	}
+	if !strings.HasPrefix(ext, ".") {
+		return "." + ext
+	}
+	return ext
+}
+
 func joinPath(prefix, name string) string {
 	trimmed := strings.TrimSpace(prefix)
 	if trimmed == "" {
@@ -115,27 +139,4 @@ func joinPath(prefix, name string) string {
 		return trimmed + name
 	}
 	return trimmed + "/" + name
-}
-
-func applyHashSuffix(filename string, hash string, timestamp string, attempt int) string {
-	ext := ""
-	name := filename
-	if idx := strings.LastIndex(filename, "."); idx > 0 {
-		name = filename[:idx]
-		ext = filename[idx:]
-	}
-
-	suffix := hash
-	if timestamp != "" {
-		suffix = fmt.Sprintf("%s-%s", suffix, timestamp)
-	}
-	if attempt > 0 {
-		suffix = fmt.Sprintf("%s-%d", suffix, attempt)
-	}
-
-	if name == "" {
-		return suffix + ext
-	}
-
-	return fmt.Sprintf("%s-%s%s", name, suffix, ext)
 }

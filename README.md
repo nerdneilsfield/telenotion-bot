@@ -167,6 +167,14 @@ path_prefix = "images/"    # Image storage directory
 
 `telegram_branch`/`discord_branch` override `branch` when set.
 
+### Media Config
+
+```toml
+[media]
+max_image_size_mb = 20
+allowed_image_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+```
+
 ### Title Format Config
 
 ```toml
@@ -201,6 +209,8 @@ export GITHUB_BRANCH="main"
 export GITHUB_TELEGRAM_BRANCH="telegram"
 export GITHUB_DISCORD_BRANCH="discord"
 export GITHUB_PATH_PREFIX="images/"
+export MEDIA_MAX_IMAGE_SIZE_MB="20"
+export MEDIA_ALLOWED_IMAGE_TYPES="image/jpeg,image/png,image/gif,image/webp"
 export TITLE_TIMEZONE="Asia/Shanghai"
 export TITLE_FORMAT="2006-01-02 15:04"
 export LOG_LEVEL="info"

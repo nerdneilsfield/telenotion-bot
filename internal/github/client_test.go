@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)
@@ -42,12 +41,7 @@ func TestUploadImage_Success(t *testing.T) {
 	data := []byte("test image data")
 	hash := sha256.Sum256(data)
 	hashHex := hex.EncodeToString(hash[:])
-	if len(hashHex) > 8 {
-		hashHex = hashHex[:8]
-	}
-	fixedNow := time.Date(2026, 1, 20, 0, 0, 0, 0, time.UTC)
-	timestamp := fixedNow.UTC().Format("20060102-150405")
-	expectedPath := "images/test-" + hashHex + "-" + timestamp + ".jpg"
+	expectedPath := "images/" + hashHex + ".jpg"
 	expectedURL := "https://raw.githubusercontent.com/owner/repo/main/" + expectedPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +70,6 @@ func TestUploadImage_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient("token", "owner/repo", "main", "images/")
-	client.now = func() time.Time { return fixedNow }
 	client.client = &http.Client{
 		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			req.URL.Scheme = "http"
@@ -85,7 +78,7 @@ func TestUploadImage_Success(t *testing.T) {
 		}),
 	}
 
-	url, err := client.UploadImage(context.Background(), data, "test.jpg")
+	url, err := client.UploadImage(context.Background(), data, ".jpg")
 	if err != nil {
 		t.Fatalf("UploadImage() error = %v", err)
 	}
@@ -122,7 +115,7 @@ func TestUploadImage_RetryOnServerError(t *testing.T) {
 	}
 
 	data := []byte("test image data")
-	url, err := client.UploadImage(context.Background(), data, "test.jpg")
+	url, err := client.UploadImage(context.Background(), data, ".jpg")
 	if err != nil {
 		t.Fatalf("UploadImage() error = %v", err)
 	}
@@ -154,7 +147,7 @@ func TestUploadImage_NoRetryOnClientError(t *testing.T) {
 	}
 
 	data := []byte("test image data")
-	_, err := client.UploadImage(context.Background(), data, "test.jpg")
+	_, err := client.UploadImage(context.Background(), data, ".jpg")
 
 	if err == nil {
 		t.Error("UploadImage() should return error on 404")
@@ -165,11 +158,46 @@ func TestUploadImage_NoRetryOnClientError(t *testing.T) {
 	}
 }
 
+func TestUploadImage_ReuseOnUnprocessableEntity(t *testing.T) {
+	attempts := 0
+	data := []byte("test image data")
+	hash := sha256.Sum256(data)
+	hashHex := hex.EncodeToString(hash[:])
+	expectedPath := hashHex + ".jpg"
+	expectedURL := "https://raw.githubusercontent.com/owner/repo/main/" + expectedPath
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	}))
+	defer server.Close()
+
+	client := NewClient("token", "owner/repo", "main", "")
+	client.client = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			req.URL.Scheme = "http"
+			req.URL.Host = server.Listener.Addr().String()
+			return http.DefaultTransport.RoundTrip(req)
+		}),
+	}
+
+	url, err := client.UploadImage(context.Background(), data, ".jpg")
+	if err != nil {
+		t.Fatalf("UploadImage() error = %v", err)
+	}
+	if url != expectedURL {
+		t.Errorf("UploadImage() = %q, want %q", url, expectedURL)
+	}
+	if attempts != 1 {
+		t.Errorf("attempts = %d, want 1", attempts)
+	}
+}
+
 func TestUploadImage_MissingRepoOrBranch(t *testing.T) {
 	client := NewClient("token", "", "main", "")
 
 	data := []byte("test image data")
-	_, err := client.UploadImage(context.Background(), data, "test.jpg")
+	_, err := client.UploadImage(context.Background(), data, ".jpg")
 
 	if err == nil {
 		t.Error("UploadImage() should return error when repo is empty")
@@ -199,7 +227,7 @@ func TestUploadImage_ContextCancelled(t *testing.T) {
 	cancel() // Cancel immediately
 
 	data := []byte("test image data")
-	_, err := client.UploadImage(ctx, data, "test.jpg")
+	_, err := client.UploadImage(ctx, data, ".jpg")
 
 	if err == nil {
 		t.Error("UploadImage() should return error when context is cancelled")
@@ -251,7 +279,7 @@ func TestUploadImage_ProperBase64Encoding(t *testing.T) {
 
 	// Use known content: "hello" base64 encoded is "aGVsbG8="
 	data := []byte("hello")
-	_, _ = client.UploadImage(context.Background(), data, "test.jpg")
+	_, _ = client.UploadImage(context.Background(), data, ".jpg")
 
 	expectedContent := base64.StdEncoding.EncodeToString([]byte("hello"))
 	if receivedContent != expectedContent {

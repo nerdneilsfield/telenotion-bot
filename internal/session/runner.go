@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -29,6 +30,10 @@ const helpText = "Commands:\n/start - start a new capture session\n/clean - clea
 func NewRunner(cfg *config.Config, logger *zap.Logger) (*Runner, error) {
 	client, err := tgclient.NewClient(cfg.Telegram.Token)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := ConfigureMedia(cfg); err != nil {
 		return nil, err
 	}
 
@@ -254,16 +259,22 @@ func (r *Runner) createNotionPage(ctx context.Context, session *Session) error {
 				fileURL = resolvedURL
 			}
 
-			data, err := downloadURL(fileURL)
+			data, extension, err := downloadImage(ctx, fileURL)
 			if err != nil {
+				if errors.Is(err, ErrImageTooLarge) {
+					r.reply(session.ChatID, imageTooLargeMessage)
+					blocks = append(blocks, imagePlaceholderBlock(imageTooLargeMessage))
+					continue
+				}
+				if errors.Is(err, ErrUnsupportedImageType) {
+					r.reply(session.ChatID, imageUnsupportedTypeMessage)
+					blocks = append(blocks, imagePlaceholderBlock(imageUnsupportedTypeMessage))
+					continue
+				}
 				return err
 			}
 
-			filename := b.Filename
-			if filename == "" {
-				filename = fmt.Sprintf("%s.jpg", b.FileID)
-			}
-			rawURL, err := r.github.UploadImage(ctx, data, filename)
+			rawURL, err := r.github.UploadImage(ctx, data, extension)
 			if err != nil {
 				return err
 			}

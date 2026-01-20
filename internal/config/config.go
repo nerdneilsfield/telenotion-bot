@@ -15,6 +15,7 @@ type Config struct {
 	Discord  Discord  `toml:"discord"`
 	Notion   Notion   `toml:"notion"`
 	GitHub   GitHub   `toml:"github"`
+	Media    Media    `toml:"media"`
 	Title    Title    `toml:"title"`
 	Log      Log      `toml:"log"`
 }
@@ -45,6 +46,11 @@ type GitHub struct {
 	PathPrefix     string `toml:"path_prefix"`
 }
 
+type Media struct {
+	MaxImageSizeMB    int64    `toml:"max_image_size_mb"`
+	AllowedImageTypes []string `toml:"allowed_image_types"`
+}
+
 type Title struct {
 	Timezone string `toml:"timezone"`
 	Format   string `toml:"format"`
@@ -71,6 +77,8 @@ const (
 	EnvGitHubTelegramBranch = "GITHUB_TELEGRAM_BRANCH"
 	EnvGitHubDiscordBranch  = "GITHUB_DISCORD_BRANCH"
 	EnvGitHubPathPrefix     = "GITHUB_PATH_PREFIX"
+	EnvMediaMaxImageSizeMB  = "MEDIA_MAX_IMAGE_SIZE_MB"
+	EnvMediaAllowedTypes    = "MEDIA_ALLOWED_IMAGE_TYPES"
 	EnvTitleTimezone        = "TITLE_TIMEZONE"
 	EnvTitleFormat          = "TITLE_FORMAT"
 	EnvLogLevel             = "LOG_LEVEL"
@@ -166,6 +174,15 @@ func (c *Config) applyEnvOverrides() {
 		c.GitHub.PathPrefix = v
 	}
 
+	if v := os.Getenv(EnvMediaMaxImageSizeMB); v != "" {
+		if parsed, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
+			c.Media.MaxImageSizeMB = parsed
+		}
+	}
+	if v := os.Getenv(EnvMediaAllowedTypes); v != "" {
+		c.Media.AllowedImageTypes = parseStringList(v)
+	}
+
 	// Title
 	if v := os.Getenv(EnvTitleTimezone); v != "" {
 		c.Title.Timezone = v
@@ -214,6 +231,25 @@ func parseStringList(s string) []string {
 	return result
 }
 
+func defaultMediaAllowedTypes() []string {
+	return []string{"image/jpeg", "image/png", "image/gif", "image/webp"}
+}
+
+func normalizeMediaTypes(types []string) []string {
+	if len(types) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(types))
+	for _, value := range types {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		result = append(result, strings.ToLower(trimmed))
+	}
+	return result
+}
+
 func (c *Config) Normalize() {
 	if c.Title.Timezone == "" {
 		c.Title.Timezone = "Asia/Shanghai"
@@ -226,6 +262,13 @@ func (c *Config) Normalize() {
 	}
 	if c.Notion.OriginProperty == "" {
 		c.Notion.OriginProperty = "Origin"
+	}
+	if c.Media.MaxImageSizeMB <= 0 {
+		c.Media.MaxImageSizeMB = 20
+	}
+	c.Media.AllowedImageTypes = normalizeMediaTypes(c.Media.AllowedImageTypes)
+	if len(c.Media.AllowedImageTypes) == 0 {
+		c.Media.AllowedImageTypes = defaultMediaAllowedTypes()
 	}
 	if c.Log.Level == "" {
 		c.Log.Level = "info"
@@ -292,6 +335,16 @@ func (c *Config) Validate() error {
 	}
 	if _, err := time.LoadLocation(c.Title.Timezone); err != nil {
 		return fmt.Errorf("title.timezone is invalid: %w", err)
+	}
+
+	skipMediaValidation := c.Media.MaxImageSizeMB == 0 && len(c.Media.AllowedImageTypes) == 0
+	if !skipMediaValidation {
+		if c.Media.MaxImageSizeMB <= 0 {
+			return fmt.Errorf("media.max_image_size_mb must be positive")
+		}
+		if len(c.Media.AllowedImageTypes) == 0 {
+			return fmt.Errorf("media.allowed_image_types is required")
+		}
 	}
 
 	return nil

@@ -55,6 +55,14 @@ func findSentenceBoundary(runes []rune, limit int) int {
 	return limit
 }
 
+func imagePlaceholderBlock(message string) notionapi.Block {
+	richTexts := []notionapi.RichText{{Type: "text", Text: &notionapi.Text{Content: message}}}
+	return &notionapi.ParagraphBlock{
+		BasicBlock: notionapi.BasicBlock{Object: "block", Type: "paragraph"},
+		Paragraph:  notionapi.Paragraph{RichText: richTexts},
+	}
+}
+
 func chunkRichText(richTexts []notionapi.RichText, limit int) [][]notionapi.RichText {
 	if len(richTexts) == 0 {
 		return nil

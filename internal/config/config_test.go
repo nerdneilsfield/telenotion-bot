@@ -130,6 +130,12 @@ func TestNormalize(t *testing.T) {
 	if cfg.Log.Level != "info" {
 		t.Errorf("Log.Level = %q, want %q", cfg.Log.Level, "info")
 	}
+	if cfg.Media.MaxImageSizeMB != 20 {
+		t.Errorf("Media.MaxImageSizeMB = %d, want %d", cfg.Media.MaxImageSizeMB, 20)
+	}
+	if len(cfg.Media.AllowedImageTypes) == 0 {
+		t.Error("Media.AllowedImageTypes should not be empty")
+	}
 }
 
 func TestGitHubBranchFallback(t *testing.T) {
@@ -398,6 +404,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	os.Setenv(EnvGitHubTelegramBranch, "env-tg")
 	os.Setenv(EnvGitHubDiscordBranch, "env-discord")
 	os.Setenv(EnvGitHubPathPrefix, "env-images/")
+	os.Setenv(EnvMediaMaxImageSizeMB, "25")
+	os.Setenv(EnvMediaAllowedTypes, "image/jpeg,image/png")
 	os.Setenv(EnvTitleTimezone, "America/New_York")
 	os.Setenv(EnvTitleFormat, "2006-01-02")
 	os.Setenv(EnvLogLevel, "debug")
@@ -419,6 +427,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 		os.Unsetenv(EnvGitHubTelegramBranch)
 		os.Unsetenv(EnvGitHubDiscordBranch)
 		os.Unsetenv(EnvGitHubPathPrefix)
+		os.Unsetenv(EnvMediaMaxImageSizeMB)
+		os.Unsetenv(EnvMediaAllowedTypes)
 		os.Unsetenv(EnvTitleTimezone)
 		os.Unsetenv(EnvTitleFormat)
 		os.Unsetenv(EnvLogLevel)
@@ -471,6 +481,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.GitHub.DiscordBranch != "env-discord" {
 		t.Errorf("GitHub.DiscordBranch = %q, want %q", cfg.GitHub.DiscordBranch, "env-discord")
+	}
+	if cfg.Media.MaxImageSizeMB != 25 {
+		t.Errorf("Media.MaxImageSizeMB = %d, want %d", cfg.Media.MaxImageSizeMB, 25)
+	}
+	if len(cfg.Media.AllowedImageTypes) != 2 {
+		t.Errorf("Media.AllowedImageTypes length = %d, want %d", len(cfg.Media.AllowedImageTypes), 2)
 	}
 	if cfg.Title.Timezone != "America/New_York" {
 		t.Errorf("Title.Timezone = %q, want %q", cfg.Title.Timezone, "America/New_York")
