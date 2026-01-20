@@ -1,4 +1,4 @@
-projectname := "go-template"
+projectname := "telenotion-bot"
 
 # 列出所有可用的命令
 default:

@@ -1,0 +1,18 @@
+[telegram]
+token = "your-telegram-bot-token"
+allowed_chat_ids = [123456789]
+
+[notion]
+token = "your-notion-integration-token"
+database_id = "your-database-id"
+title_property = "Name"
+
+[github]
+token = "your-github-pat"
+repo = "owner/repo"
+branch = "main"
+path_prefix = "images/"
+
+[title]
+timezone = "Asia/Shanghai"
+format = "2006-01-02 15:04"

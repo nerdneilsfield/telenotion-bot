@@ -1,4 +1,4 @@
-projectname?=go-template
+projectname?=telenotion-bot
 
 default: help
 

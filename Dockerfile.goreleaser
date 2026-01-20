@@ -6,6 +6,6 @@ RUN addgroup -S app && adduser -S app -G app
 USER app
 
 WORKDIR /app
-COPY ${TARGETPLATFORM}/go-template /app/go-template
+COPY ${TARGETPLATFORM}/telenotion-bot /app/telenotion-bot
 
-ENTRYPOINT ["/app/go-template"]
+ENTRYPOINT ["/app/telenotion-bot"]
