@@ -220,23 +220,27 @@ func (r *Runner) createNotionPage(ctx context.Context, session *Session) error {
 		switch b := block.(type) {
 		case TextBlock:
 			richTexts := splitRichTextEntries(b.RichText)
-			blocks = append(blocks, &notionapi.ParagraphBlock{
-				BasicBlock: notionapi.BasicBlock{Object: "block", Type: "paragraph"},
-				Paragraph:  notionapi.Paragraph{RichText: richTexts},
-			})
+			for _, chunk := range chunkRichText(richTexts, notionRichTextBlockLimit) {
+				blocks = append(blocks, &notionapi.ParagraphBlock{
+					BasicBlock: notionapi.BasicBlock{Object: "block", Type: "paragraph"},
+					Paragraph:  notionapi.Paragraph{RichText: chunk},
+				})
+			}
 		case CodeBlock:
 			language := b.Language
 			if language == "" {
 				language = "plain text"
 			}
 			richTexts := splitRichTextEntries([]notionapi.RichText{{Type: "text", Text: &notionapi.Text{Content: b.Content}}})
-			blocks = append(blocks, &notionapi.CodeBlock{
-				BasicBlock: notionapi.BasicBlock{Object: "block", Type: "code"},
-				Code: notionapi.Code{
-					RichText: richTexts,
-					Language: language,
-				},
-			})
+			for _, chunk := range chunkRichText(richTexts, notionRichTextBlockLimit) {
+				blocks = append(blocks, &notionapi.CodeBlock{
+					BasicBlock: notionapi.BasicBlock{Object: "block", Type: "code"},
+					Code: notionapi.Code{
+						RichText: chunk,
+						Language: language,
+					},
+				})
+			}
 		case ImageBlock:
 			fileURL := b.FileURL
 			if fileURL == "" {

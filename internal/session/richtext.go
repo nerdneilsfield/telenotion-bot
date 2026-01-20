@@ -2,7 +2,10 @@ package session
 
 import "github.com/jomei/notionapi"
 
-const notionRichTextLimit = 2000
+const (
+	notionRichTextLimit      = 2000
+	notionRichTextBlockLimit = 100
+)
 
 func splitRichTextEntries(richTexts []notionapi.RichText) []notionapi.RichText {
 	result := make([]notionapi.RichText, 0, len(richTexts))
@@ -29,4 +32,24 @@ func splitRunes(text string, limit int) (string, string) {
 		return text, ""
 	}
 	return string(runes[:limit]), string(runes[limit:])
+}
+
+func chunkRichText(richTexts []notionapi.RichText, limit int) [][]notionapi.RichText {
+	if len(richTexts) == 0 {
+		return nil
+	}
+	if limit <= 0 || len(richTexts) <= limit {
+		return [][]notionapi.RichText{richTexts}
+	}
+
+	chunks := make([][]notionapi.RichText, 0, (len(richTexts)+limit-1)/limit)
+	for len(richTexts) > 0 {
+		if len(richTexts) <= limit {
+			chunks = append(chunks, richTexts)
+			break
+		}
+		chunks = append(chunks, richTexts[:limit])
+		richTexts = richTexts[limit:]
+	}
+	return chunks
 }
