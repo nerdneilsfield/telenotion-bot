@@ -60,6 +60,7 @@ telenotion-bot bot --config config.toml
 - `/clean` - 清空当前缓存
 - `/discard` - 放弃当前会话
 - `/end` - 创建 Notion 页面并结束会话
+- `/help` - 查看可用命令
 
 ### 支持的 Markdown 语法
 

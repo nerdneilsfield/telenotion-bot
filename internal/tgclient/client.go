@@ -63,3 +63,15 @@ func (c *Client) DownloadFile(url string) ([]byte, error) {
 
 	return io.ReadAll(resp.Body)
 }
+
+func (c *Client) SendMessage(chatID int64, text string) error {
+	msg := tgbotapi.NewMessage(chatID, text)
+	_, err := c.bot.Send(msg)
+	return err
+}
+
+func (c *Client) SetCommands(commands []tgbotapi.BotCommand) error {
+	config := tgbotapi.NewSetMyCommands(commands...)
+	_, err := c.bot.Request(config)
+	return err
+}

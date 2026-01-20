@@ -23,7 +23,7 @@ func newBotCmd() *cobra.Command {
 		RunE:  runBot,
 	}
 
-	cmd.PersistentFlags().StringVar(&configPath, "config", "config.toml", "Path to configuration file")
+	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", "config.toml", "Path to configuration file")
 
 	return cmd
 }

@@ -61,6 +61,7 @@ telenotion-bot bot --config config.toml
 - `/clean` - Clear current buffer
 - `/discard` - Abandon current session
 - `/end` - Create Notion page and end session
+- `/help` - Show available commands
 
 ### Supported MarkdownV2 Syntax
 
