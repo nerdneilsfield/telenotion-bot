@@ -1,94 +1,292 @@
-# Telegram to Notion Bot
+# 🚀 Telegram to Notion Bot — 你的私人捕获小助手 ✨
 
-[![Go](https://img.shields.io/badge/go-1.23-blue.svg)](https://golang.org)
-[![License](https://img.shields.io/github/license/nerdneilsfield/telenotion-bot)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/nerdneilsfield/telenotion-bot)](https://github.com/nerdneilsfield/telenotion-bot/releases)
-[![GoReleaser](https://github.com/nerdneilsfield/telenotion-bot/actions/workflows/goreleaser.yml/badge.svg)](https://github.com/nerdneilsfield/telenotion-bot/actions/workflows/goreleaser.yml)
+[![Go 1.23](https://img.shields.io/badge/Go-1.23-blue?logo=go)](https://golang.org)
+[![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/nerdneilsfield/telenotion-bot?color=orange)](https://github.com/nerdneilsfield/telenotion-bot/releases)
+[![GoReleaser](https://img.shields.io/github/actions/workflow/status/nerdneilsfield/telenotion-bot/goreleaser?label=CI)](https://github.com/nerdneilsfield/telenotion-bot/actions)
 
-[English](README.md)
+---
 
-这是一个将 Telegram 消息捕获并写入 Notion 数据库的机器人，支持 MarkdownV2 格式。
+## 👋 姐妹们！有个超好用的东西必须安利给你们！
 
-## 特性
+讲真！是不是每次在 Telegram 看到什么有用的信息，都得：
+1. 复制粘贴到 Notion
+2. 手动调整格式
+3. 上传图片
+4. ... 一套流程下来累觉不爱 😭
 
-- 从配置的 Telegram 聊天中捕获消息并存入 Notion
-- 支持 `/start`、`/clean`、`/discard`、`/end` 命令
-- 将 MarkdownV2 格式转换为 Notion 富文本
-- 自动上传图片到 GitHub 仓库并嵌入到 Notion
-- 使用时间格式作为 Notion 页面标题
+**现在！这一切都！不！存！在！了！** 🎉
 
-## 配置
+---
 
-创建 TOML 配置文件（参考 `config.example.toml`）：
+## ✨ 这玩意儿能干嘛？
+
+**Telegram to Notion Bot** 就是你的私人捕获小助手：
+
+| 超能力 | 说明 |
+|--------|------|
+| 📝 **消息捕获** | 会话期间的所有消息，全部帮你记住！ |
+| 🎨 **格式保留** | 粗体、斜体、代码块、链接，原样搬运！ |
+| 🖼️ **图片托管** | 自动上传到 GitHub，Notion 里直接显示！ |
+| ⏰ **时间戳标题** | 自动用当前时间生成页面标题 |
+| 💾 **块级存储** | 所有内容以 Notion 子块形式保存 |
+
+**一句话：复制粘贴？不存在！发完就走，Notion 自动帮你整理好！** 😎
+
+---
+
+## 🎯 核心功能一览
+
+| 功能 | 命令 | 效果 |
+|------|------|------|
+| `/start` ✨ | 开始新会话 | 开启捕获模式 |
+| `/clean` 🧹 | 清空缓存 | 清除当前内容，会话继续 |
+| `/discard` 🔄 | 放弃会话 | 重新开始 |
+| `/end` 💾 | 保存到 Notion | 生成页面，结束会话 |
+| `/help` 📖 | 查看帮助 | 显示所有命令 |
+
+**Markdown 支持**：`*粗体*` → ✅ | `_斜体_` → ✅ | `` `代码` `` → ✅ | ```代码块``` → ✅ | `[链接](url)` → ✅
+
+**图片处理**：直接发！自动下载 Telegram 图片 → 上传到 GitHub → 嵌入 Notion 🖼️
+
+---
+
+## 🚀 5 分钟快速上手
+
+### 方式一：下载运行（推荐新手）
+
+```bash
+# 1️⃣ 下载最新版本
+# 访问 https://github.com/nerdneilsfield/telenotion-bot/releases
+# 下载对应系统的压缩包并解压
+
+# 2️⃣ 创建配置文件
+cp config.example.toml config.toml
+
+# 3️⃣ 编辑配置（见下方配置详解）
+vim config.toml
+
+# 4️⃣ 启动！
+./telenotion-bot bot -c config.toml
+```
+
+### 方式二：源码编译（适合开发者）
+
+```bash
+# 1️⃣ 克隆项目
+git clone https://github.com/nerdneilsfield/telenotion-bot.git
+cd telenotion-bot
+
+# 2️⃣ 构建
+go build -o telenotion-bot .
+
+# 3️⃣ 启动（同上）
+./telenotion-bot bot -c config.toml
+```
+
+### 方式三：Docker 一键部署 🐳
+
+```bash
+# 最简单的部署方式！
+docker-compose up -d
+```
+
+---
+
+## ⚙️ 配置详解（3 个服务，5 分钟搞定）
+
+> 💡 **小贴士**：环境变量和 TOML 配置文件都支持！Docker 部署首选环境变量~
+
+### Telegram 配置
 
 ```toml
 [telegram]
-token = "your-telegram-bot-token"
-allowed_chat_ids = [123456789]
-
-[notion]
-token = "your-notion-integration-token"
-database_id = "your-database-id"
-title_property = "Name"
-
-[github]
-token = "your-github-pat"
-repo = "owner/repo"
-branch = "main"
-path_prefix = "images/"
-
-[title]
-timezone = "Asia/Shanghai"
-format = "2006-01-02 15:04"
-
-[log]
-level = "info"
-file = ""
+token = "你的Telegram Bot Token"  # @BotFather 创建
+allowed_chat_ids = [123456789, 987654321]  # 允许使用机器人的群组/用户ID
 ```
 
-## 使用
+### Notion 配置
 
-运行 bot：
+```toml
+[notion]
+token = "你的Notion Integration Token"  # https://www.notion.so/my-integrations
+database_id = "你的数据库ID"  # 数据库 URL 中的一大串字符
+title_property = "Name"  # 数据库的标题字段名
+```
+
+### GitHub 配置（图片托管）
+
+```toml
+[github]
+token = "你的GitHub PAT"  # https://github.com/settings/tokens
+repo = "用户名/仓库名"    # 比如 "nerdneilsfield/my-images"
+branch = "main"          # 分支名
+path_prefix = "images/"  # 图片存放目录
+```
+
+### 标题格式配置
+
+```toml
+[title]
+timezone = "Asia/Shanghai"  # 时区
+format = "2006-01-02 15:04" # 页面标题格式
+```
+
+### 日志配置
+
+```toml
+[log]
+level = "info"   # debug | info | warn | error
+file = ""        # 日志文件路径，留空则只输出到 stdout
+```
+
+### 🔐 环境变量支持（Docker 必备！）
 
 ```bash
-telenotion-bot bot --config config.toml
+# 不需要 config.toml？没问题！
+export TELEGRAM_TOKEN="xxx"
+export TELEGRAM_ALLOWED_CHAT_IDS="123,456,789"
+export NOTION_TOKEN="xxx"
+export NOTION_DATABASE_ID="xxx"
+export NOTION_TITLE_PROPERTY="Name"
+export GITHUB_TOKEN="xxx"
+export GITHUB_REPO="owner/repo"
+export GITHUB_BRANCH="main"
+export GITHUB_PATH_PREFIX="images/"
+export TITLE_TIMEZONE="Asia/Shanghai"
+export TITLE_FORMAT="2006-01-02 15:04"
+export LOG_LEVEL="info"
+export LOG_FILE=""
+
+# 然后运行（不需要 -c 参数）
+./telenotion-bot bot
 ```
 
-### 命令
+---
 
-- `/start` - 开始新的捕获会话
-- `/clean` - 清空当前缓存
-- `/discard` - 放弃当前会话
-- `/end` - 创建 Notion 页面并结束会话
-- `/help` - 查看可用命令
+## 📱 使用教程
 
-### 支持的 Markdown 语法
+### Step 1：开始捕获 ✨
 
-- `*bold text*` - 粗体
-- `_italic text_` - 斜体
-- ` `code` `` - 行内代码
-- `[text](url)` - 链接
+```
+/start
+```
 
-### Notion 数据库要求
+机器人回复：
+> *"Session started. Send messages or images, then /end to save."* ✨
 
-你的 Notion 数据库必须具有：
-- `title` 属性（类型：Title）
-- 不需要额外的内容属性（内容存储为子块）
+### Step 2：开始发消息 📝
 
-## 开发
+想发啥发啥！
+
+**支持的格式：**
+- `*这是粗体*` → **这是粗体**
+- `_这是斜体_` → *这是斜体*
+- `` `console.log('hi')` `` → `console.log('hi')`
+- ```javascript\nconsole.log('code block')\n``` → 代码块
+- `[点击访问 Google](https://google.com)` → [点击访问 Google](https://google.com)
+
+**图片**：直接发！机器人自动帮你处理~ 🖼️
+
+### Step 3：保存到 Notion 💾
+
+```
+/end
+```
+
+搞定了！去 Notion 看你的新页面吧！🎉
+
+---
+
+## 🛠️ 开发者友好
+
+### 构建 & 测试
 
 ```bash
 # 构建
 go build ./...
 
-# 测试
-go test ./...
+# 测试（覆盖率超 90%！🎉）
+go test ./... -cover
 
-# 格式化代码
+# 单元测试详情
+go test ./... -v
+```
+
+### 代码规范
+
+```bash
+# 格式化
 go fmt ./...
+
+# 整理 import
 goimports -w .
 ```
 
-## 许可证
+### 技术栈
 
-MIT License
+| 技术 | 用途 |
+|------|------|
+| Go 1.23+ | 开发语言 |
+| Telegram Bot API | 消息接收 |
+| Notion API | 页面创建 |
+| GitHub Contents API | 图片托管 |
+| Zap | 结构化日志 |
+| TOML | 配置格式 |
+
+---
+
+## 📋 Notion 数据库要求
+
+你的数据库只需要：
+
+| 要求 | 说明 |
+|------|------|
+| ✅ 标题属性 | 类型为 Title 的字段 |
+| ✅ 无其他必填项 | 内容以子块形式存储 |
+
+---
+
+## 🐛 遇到问题？
+
+1. **检查日志**：用 `-v` 参数看详细输出
+2. **常见问题**：
+   - `telegram.token is required` → 检查 Token
+   - `notion.database_id is required` → 检查数据库 ID
+   - 图片上传失败 → 检查 GitHub Token 权限
+3. **还没解决？** → [提 Issue](https://github.com/nerdneilsfield/telenotion-bot/issues)
+
+---
+
+## 🤝 贡献指南
+
+发现 Bug？有新想法？
+
+**我们欢迎各种贡献！** 🌟
+
+- 🐛 报告 Bug
+- 💡 提出建议
+- 🔧 提交代码
+- 📖 完善文档
+
+---
+
+## 📝 License
+
+MIT License — **免费！开源！随便用！** 🎊
+
+---
+
+## 💬 最后的最后
+
+希望这个工具能帮你省下那些重复劳动的时间！
+
+**有想法？来 GitHub 找我聊！**
+
+[🐙 GitHub](https://github.com/nerdneilsfield/telenotion-bot) | [🐛 Report Issues](https://github.com/nerdneilsfield/telenotion-bot/issues)
+
+---
+
+**Made with ❤️ and a lot of ☕**
+
+*你的 Telegram → Notion 桥梁，正在为你服务~* 🚀

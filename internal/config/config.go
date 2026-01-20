@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -44,6 +46,23 @@ type Log struct {
 	File  string `toml:"file"`
 }
 
+// Environment variable names for config overrides
+const (
+	EnvTelegramToken      = "TELEGRAM_TOKEN"
+	EnvTelegramAllowedIDs = "TELEGRAM_ALLOWED_CHAT_IDS"
+	EnvNotionToken        = "NOTION_TOKEN"
+	EnvNotionDatabaseID   = "NOTION_DATABASE_ID"
+	EnvNotionTitleProp    = "NOTION_TITLE_PROPERTY"
+	EnvGitHubToken        = "GITHUB_TOKEN"
+	EnvGitHubRepo         = "GITHUB_REPO"
+	EnvGitHubBranch       = "GITHUB_BRANCH"
+	EnvGitHubPathPrefix   = "GITHUB_PATH_PREFIX"
+	EnvTitleTimezone      = "TITLE_TIMEZONE"
+	EnvTitleFormat        = "TITLE_FORMAT"
+	EnvLogLevel           = "LOG_LEVEL"
+	EnvLogFile            = "LOG_FILE"
+)
+
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -55,12 +74,99 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Apply environment variable overrides
+	cfg.applyEnvOverrides()
+
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	return &cfg, nil
+}
+
+// LoadFromEnv loads configuration from environment variables only.
+// Useful for container deployments where config file is not available.
+func LoadFromEnv() (*Config, error) {
+	cfg := &Config{}
+
+	// Apply environment variable overrides
+	cfg.applyEnvOverrides()
+
+	cfg.Normalize()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// applyEnvOverrides applies environment variable overrides to config values.
+func (c *Config) applyEnvOverrides() {
+	// Telegram
+	if v := os.Getenv(EnvTelegramToken); v != "" {
+		c.Telegram.Token = v
+	}
+	if v := os.Getenv(EnvTelegramAllowedIDs); v != "" {
+		c.Telegram.AllowedChatIDs = parseInt64List(v)
+	}
+
+	// Notion
+	if v := os.Getenv(EnvNotionToken); v != "" {
+		c.Notion.Token = v
+	}
+	if v := os.Getenv(EnvNotionDatabaseID); v != "" {
+		c.Notion.DatabaseID = v
+	}
+	if v := os.Getenv(EnvNotionTitleProp); v != "" {
+		c.Notion.TitleProperty = v
+	}
+
+	// GitHub
+	if v := os.Getenv(EnvGitHubToken); v != "" {
+		c.GitHub.Token = v
+	}
+	if v := os.Getenv(EnvGitHubRepo); v != "" {
+		c.GitHub.Repo = v
+	}
+	if v := os.Getenv(EnvGitHubBranch); v != "" {
+		c.GitHub.Branch = v
+	}
+	if v := os.Getenv(EnvGitHubPathPrefix); v != "" {
+		c.GitHub.PathPrefix = v
+	}
+
+	// Title
+	if v := os.Getenv(EnvTitleTimezone); v != "" {
+		c.Title.Timezone = v
+	}
+	if v := os.Getenv(EnvTitleFormat); v != "" {
+		c.Title.Format = v
+	}
+
+	// Log
+	if v := os.Getenv(EnvLogLevel); v != "" {
+		c.Log.Level = v
+	}
+	if v := os.Getenv(EnvLogFile); v != "" {
+		c.Log.File = v
+	}
+}
+
+// parseInt64List parses a comma-separated list of int64 values.
+func parseInt64List(s string) []int64 {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]int64, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if v, err := strconv.ParseInt(p, 10, 64); err == nil {
+			result = append(result, v)
+		}
+	}
+	return result
 }
 
 func (c *Config) Normalize() {

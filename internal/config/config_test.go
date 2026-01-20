@@ -1,0 +1,396 @@
+package config
+
+import (
+	"os"
+	"testing"
+	"time"
+)
+
+func TestLoad_ValidConfig(t *testing.T) {
+	// Create a valid config file
+	content := `
+[telegram]
+token = "test-token"
+allowed_chat_ids = [123456789]
+
+[notion]
+token = "notion-token"
+database_id = "database-id"
+title_property = "Name"
+
+[github]
+token = "github-token"
+repo = "owner/repo"
+branch = "main"
+path_prefix = "images/"
+
+[title]
+timezone = "Asia/Shanghai"
+format = "2006-01-02 15:04"
+
+[log]
+level = "info"
+file = ""
+`
+	tmpFile, err := os.CreateTemp("", "config-*.toml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.WriteString(content); err != nil {
+		t.Fatalf("Failed to write temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	cfg, err := Load(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Verify values
+	if cfg.Telegram.Token != "test-token" {
+		t.Errorf("Telegram.Token = %q, want %q", cfg.Telegram.Token, "test-token")
+	}
+	if cfg.Telegram.AllowedChatIDs[0] != 123456789 {
+		t.Errorf("AllowedChatIDs = %v, want %v", cfg.Telegram.AllowedChatIDs, []int64{123456789})
+	}
+	if cfg.Notion.DatabaseID != "database-id" {
+		t.Errorf("DatabaseID = %q, want %q", cfg.Notion.DatabaseID, "database-id")
+	}
+	if cfg.GitHub.Repo != "owner/repo" {
+		t.Errorf("GitHub.Repo = %q, want %q", cfg.GitHub.Repo, "owner/repo")
+	}
+	if cfg.Title.Timezone != "Asia/Shanghai" {
+		t.Errorf("Timezone = %q, want %q", cfg.Title.Timezone, "Asia/Shanghai")
+	}
+}
+
+func TestLoad_FileNotFound(t *testing.T) {
+	_, err := Load("/nonexistent/path/config.toml")
+	if err == nil {
+		t.Error("Load() should return error for missing file")
+	}
+}
+
+func TestLoad_InvalidTOML(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "config-*.toml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Write invalid TOML
+	if _, err := tmpFile.WriteString("invalid toml content ["); err != nil {
+		t.Fatalf("Failed to write temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	_, err = Load(tmpFile.Name())
+	if err == nil {
+		t.Error("Load() should return error for invalid TOML")
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	cfg := &Config{
+		Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+		Notion:   Notion{Token: "token", DatabaseID: "id"},
+		GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
+		Title:    Title{},
+		Log:      Log{},
+	}
+
+	cfg.Normalize()
+
+	if cfg.Title.Timezone != "Asia/Shanghai" {
+		t.Errorf("Timezone = %q, want %q", cfg.Title.Timezone, "Asia/Shanghai")
+	}
+	if cfg.Title.Format != "2006-01-02 15:04" {
+		t.Errorf("Format = %q, want %q", cfg.Title.Format, "2006-01-02 15:04")
+	}
+	if cfg.Notion.TitleProperty != "Name" {
+		t.Errorf("TitleProperty = %q, want %q", cfg.Notion.TitleProperty, "Name")
+	}
+	if cfg.Log.Level != "info" {
+		t.Errorf("Log.Level = %q, want %q", cfg.Log.Level, "info")
+	}
+}
+
+func TestValidate_MissingToken(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     Config
+		wantErr string
+	}{
+		{
+			name: "missing telegram token",
+			cfg: Config{
+				Telegram: Telegram{AllowedChatIDs: []int64{1}},
+				Notion:   Notion{Token: "token", DatabaseID: "id"},
+				GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:    Title{Timezone: "UTC"},
+			},
+			wantErr: "telegram.token is required",
+		},
+		{
+			name: "missing allowed chat ids",
+			cfg: Config{
+				Telegram: Telegram{Token: "token"},
+				Notion:   Notion{Token: "token", DatabaseID: "id"},
+				GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:    Title{Timezone: "UTC"},
+			},
+			wantErr: "telegram.allowed_chat_ids is required",
+		},
+		{
+			name: "missing notion token",
+			cfg: Config{
+				Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+				Notion:   Notion{DatabaseID: "id"},
+				GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:    Title{Timezone: "UTC"},
+			},
+			wantErr: "notion.token is required",
+		},
+		{
+			name: "missing database id",
+			cfg: Config{
+				Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+				Notion:   Notion{Token: "token"},
+				GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:    Title{Timezone: "UTC"},
+			},
+			wantErr: "notion.database_id is required",
+		},
+		{
+			name: "missing github token",
+			cfg: Config{
+				Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+				Notion:   Notion{Token: "token", DatabaseID: "id"},
+				GitHub:   GitHub{Repo: "repo", Branch: "main"},
+				Title:    Title{Timezone: "UTC"},
+			},
+			wantErr: "github.token is required",
+		},
+		{
+			name: "missing github repo",
+			cfg: Config{
+				Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+				Notion:   Notion{Token: "token", DatabaseID: "id"},
+				GitHub:   GitHub{Token: "token", Branch: "main"},
+				Title:    Title{Timezone: "UTC"},
+			},
+			wantErr: "github.repo is required",
+		},
+		{
+			name: "missing github branch",
+			cfg: Config{
+				Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+				Notion:   Notion{Token: "token", DatabaseID: "id"},
+				GitHub:   GitHub{Token: "token", Repo: "repo"},
+				Title:    Title{Timezone: "UTC"},
+			},
+			wantErr: "github.branch is required",
+		},
+		{
+			name: "invalid timezone",
+			cfg: Config{
+				Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+				Notion:   Notion{Token: "token", DatabaseID: "id"},
+				GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
+				Title:    Title{Timezone: "Invalid/Timezone"},
+			},
+			wantErr: "title.timezone is invalid: unknown time zone Invalid/Timezone",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if err == nil {
+				t.Errorf("Validate() should return error")
+				return
+			}
+			if err.Error() != tt.wantErr {
+				t.Errorf("Validate() error = %q, want %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidate_Valid(t *testing.T) {
+	cfg := Config{
+		Telegram: Telegram{Token: "token", AllowedChatIDs: []int64{1}},
+		Notion:   Notion{Token: "token", DatabaseID: "id"},
+		GitHub:   GitHub{Token: "token", Repo: "repo", Branch: "main"},
+		Title:    Title{Timezone: "UTC"},
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Errorf("Validate() unexpected error = %v", err)
+	}
+}
+
+func TestTitleLocation(t *testing.T) {
+	title := Title{Timezone: "America/New_York"}
+
+	loc, err := title.Location()
+	if err != nil {
+		t.Fatalf("Location() error = %v", err)
+	}
+
+	if loc == nil {
+		t.Error("Location() returned nil")
+	}
+}
+
+func TestTitleLocation_Invalid(t *testing.T) {
+	title := Title{Timezone: "Invalid/Zone"}
+
+	_, err := title.Location()
+	if err == nil {
+		t.Error("Location() should return error for invalid timezone")
+	}
+}
+
+func TestTitleFormatTime(t *testing.T) {
+	title := Title{Timezone: "UTC", Format: "2006-01-02"}
+
+	loc, _ := time.LoadLocation("UTC")
+	result := title.FormatTime(loc)
+
+	// Result should be in YYYY-MM-DD format
+	if len(result) != 10 {
+		t.Errorf("FormatTime() result = %q, length = %d, want 10", result, len(result))
+	}
+}
+
+func TestApplyEnvOverrides(t *testing.T) {
+	// Set environment variables
+	os.Setenv(EnvTelegramToken, "env-telegram-token")
+	os.Setenv(EnvTelegramAllowedIDs, "111,222,333")
+	os.Setenv(EnvNotionToken, "env-notion-token")
+	os.Setenv(EnvNotionDatabaseID, "env-database-id")
+	os.Setenv(EnvNotionTitleProp, "Title")
+	os.Setenv(EnvGitHubToken, "env-github-token")
+	os.Setenv(EnvGitHubRepo, "env-owner/env-repo")
+	os.Setenv(EnvGitHubBranch, "develop")
+	os.Setenv(EnvGitHubPathPrefix, "env-images/")
+	os.Setenv(EnvTitleTimezone, "America/New_York")
+	os.Setenv(EnvTitleFormat, "2006-01-02")
+	os.Setenv(EnvLogLevel, "debug")
+	os.Setenv(EnvLogFile, "env-log.log")
+
+	defer func() {
+		// Clean up environment variables
+		os.Unsetenv(EnvTelegramToken)
+		os.Unsetenv(EnvTelegramAllowedIDs)
+		os.Unsetenv(EnvNotionToken)
+		os.Unsetenv(EnvNotionDatabaseID)
+		os.Unsetenv(EnvNotionTitleProp)
+		os.Unsetenv(EnvGitHubToken)
+		os.Unsetenv(EnvGitHubRepo)
+		os.Unsetenv(EnvGitHubBranch)
+		os.Unsetenv(EnvGitHubPathPrefix)
+		os.Unsetenv(EnvTitleTimezone)
+		os.Unsetenv(EnvTitleFormat)
+		os.Unsetenv(EnvLogLevel)
+		os.Unsetenv(EnvLogFile)
+	}()
+
+	cfg := &Config{
+		Telegram: Telegram{Token: "file-token", AllowedChatIDs: []int64{123}},
+		Notion:   Notion{Token: "file-notion", DatabaseID: "file-db"},
+		GitHub:   GitHub{Token: "file-github", Repo: "file/repo", Branch: "main"},
+		Title:    Title{Timezone: "UTC", Format: "2006"},
+		Log:      Log{Level: "info", File: ""},
+	}
+
+	cfg.applyEnvOverrides()
+
+	// Verify environment overrides were applied
+	if cfg.Telegram.Token != "env-telegram-token" {
+		t.Errorf("Telegram.Token = %q, want %q", cfg.Telegram.Token, "env-telegram-token")
+	}
+	if len(cfg.Telegram.AllowedChatIDs) != 3 {
+		t.Errorf("AllowedChatIDs length = %d, want 3", len(cfg.Telegram.AllowedChatIDs))
+	}
+	if cfg.Notion.Token != "env-notion-token" {
+		t.Errorf("Notion.Token = %q, want %q", cfg.Notion.Token, "env-notion-token")
+	}
+	if cfg.Notion.DatabaseID != "env-database-id" {
+		t.Errorf("DatabaseID = %q, want %q", cfg.Notion.DatabaseID, "env-database-id")
+	}
+	if cfg.GitHub.Token != "env-github-token" {
+		t.Errorf("GitHub.Token = %q, want %q", cfg.GitHub.Token, "env-github-token")
+	}
+	if cfg.GitHub.Repo != "env-owner/env-repo" {
+		t.Errorf("GitHub.Repo = %q, want %q", cfg.GitHub.Repo, "env-owner/env-repo")
+	}
+	if cfg.GitHub.Branch != "develop" {
+		t.Errorf("GitHub.Branch = %q, want %q", cfg.GitHub.Branch, "develop")
+	}
+	if cfg.Title.Timezone != "America/New_York" {
+		t.Errorf("Title.Timezone = %q, want %q", cfg.Title.Timezone, "America/New_York")
+	}
+	if cfg.Log.Level != "debug" {
+		t.Errorf("Log.Level = %q, want %q", cfg.Log.Level, "debug")
+	}
+}
+
+func TestParseInt64List(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []int64
+	}{
+		{"123,456,789", []int64{123, 456, 789}},
+		{"  123 , 456  ", []int64{123, 456}},
+		{"", nil},
+		{"invalid", nil},
+		{"123,abc,456", []int64{123, 456}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseInt64List(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("parseInt64List(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestLoadFromEnv(t *testing.T) {
+	// Set required environment variables
+	os.Setenv(EnvTelegramToken, "env-token")
+	os.Setenv(EnvTelegramAllowedIDs, "123")
+	os.Setenv(EnvNotionToken, "notion-token")
+	os.Setenv(EnvNotionDatabaseID, "database-id")
+	os.Setenv(EnvGitHubToken, "github-token")
+	os.Setenv(EnvGitHubRepo, "owner/repo")
+	os.Setenv(EnvGitHubBranch, "main")
+
+	defer func() {
+		os.Unsetenv(EnvTelegramToken)
+		os.Unsetenv(EnvTelegramAllowedIDs)
+		os.Unsetenv(EnvNotionToken)
+		os.Unsetenv(EnvNotionDatabaseID)
+		os.Unsetenv(EnvGitHubToken)
+		os.Unsetenv(EnvGitHubRepo)
+		os.Unsetenv(EnvGitHubBranch)
+	}()
+
+	cfg, err := LoadFromEnv()
+	if err != nil {
+		t.Fatalf("LoadFromEnv() error = %v", err)
+	}
+
+	if cfg.Telegram.Token != "env-token" {
+		t.Errorf("Telegram.Token = %q, want %q", cfg.Telegram.Token, "env-token")
+	}
+	if cfg.Notion.DatabaseID != "database-id" {
+		t.Errorf("DatabaseID = %q, want %q", cfg.Notion.DatabaseID, "database-id")
+	}
+}

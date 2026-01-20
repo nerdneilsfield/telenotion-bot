@@ -123,8 +123,12 @@ func (r *Runner) handleUpdate(ctx context.Context, update tgbotapi.Update) error
 			session, ok := r.stateMachine.EndSession(chatID)
 			if ok {
 				if err := r.createNotionPage(ctx, session); err != nil {
-					r.reply(chatID, "Failed to save. Check logs for details.")
-					return err
+					r.reply(chatID, "Failed to save. Check logs for details. Session remains active for retry.")
+					if r.logger != nil {
+						r.logger.Error("failed to create notion page", zap.Int64("chat_id", chatID), zap.Error(err))
+					}
+					// Keep session active for retry instead of exiting
+					return nil
 				}
 				r.reply(chatID, "Saved to Notion.")
 				if r.logger != nil {
