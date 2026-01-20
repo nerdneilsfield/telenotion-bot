@@ -5,6 +5,8 @@
 [![Release](https://img.shields.io/github/v/release/nerdneilsfield/telenotion-bot)](https://github.com/nerdneilsfield/telenotion-bot/releases)
 [![GoReleaser](https://github.com/nerdneilsfield/telenotion-bot/actions/workflows/goreleaser.yml/badge.svg)](https://github.com/nerdneilsfield/telenotion-bot/actions/workflows/goreleaser.yml)
 
+[English](README.md)
+
 这是一个将 Telegram 消息捕获并写入 Notion 数据库的机器人，支持 MarkdownV2 格式。
 
 ## 特性
