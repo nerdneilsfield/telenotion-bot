@@ -3,7 +3,7 @@ package session
 import "github.com/jomei/notionapi"
 
 const (
-	notionRichTextLimit      = 2000
+	notionRichTextLimit      = 1990
 	notionRichTextBlockLimit = 100
 )
 
@@ -31,7 +31,28 @@ func splitRunes(text string, limit int) (string, string) {
 	if len(runes) <= limit {
 		return text, ""
 	}
-	return string(runes[:limit]), string(runes[limit:])
+
+	splitAt := findSentenceBoundary(runes, limit)
+	if splitAt <= 0 || splitAt > len(runes) {
+		splitAt = limit
+	}
+
+	return string(runes[:splitAt]), string(runes[splitAt:])
+}
+
+func findSentenceBoundary(runes []rune, limit int) int {
+	if limit > len(runes) {
+		limit = len(runes)
+	}
+
+	for i := limit - 1; i >= 0; i-- {
+		switch runes[i] {
+		case '.', '!', '?', '。', '！', '？', '\n':
+			return i + 1
+		}
+	}
+
+	return limit
 }
 
 func chunkRichText(richTexts []notionapi.RichText, limit int) [][]notionapi.RichText {
