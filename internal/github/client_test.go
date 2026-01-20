@@ -2,7 +2,9 @@ package github
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -36,8 +38,14 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestUploadImage_Success(t *testing.T) {
-	expectedPath := "images/test.jpg"
-	expectedURL := "https://raw.githubusercontent.com/owner/repo/main/images/test.jpg"
+	data := []byte("test image data")
+	hash := sha256.Sum256(data)
+	hashHex := hex.EncodeToString(hash[:])
+	if len(hashHex) > 8 {
+		hashHex = hashHex[:8]
+	}
+	expectedPath := "images/test-" + hashHex + ".jpg"
+	expectedURL := "https://raw.githubusercontent.com/owner/repo/main/" + expectedPath
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
@@ -47,11 +55,9 @@ func TestUploadImage_Success(t *testing.T) {
 			t.Errorf("Path = %s, want %s", r.URL.Path, "/repos/owner/repo/contents/"+expectedPath)
 		}
 
-		// Parse request body
 		var req createFileRequest
 		json.NewDecoder(r.Body).Decode(&req)
 
-		// Verify authorization header
 		auth := r.Header.Get("Authorization")
 		if auth != "Bearer token" {
 			t.Errorf("Authorization = %q, want %q", auth, "Bearer token")
@@ -69,14 +75,12 @@ func TestUploadImage_Success(t *testing.T) {
 	client := NewClient("token", "owner/repo", "main", "images/")
 	client.client = &http.Client{
 		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			// Modify the request URL to point to test server
 			req.URL.Scheme = "http"
 			req.URL.Host = server.Listener.Addr().String()
 			return http.DefaultTransport.RoundTrip(req)
 		}),
 	}
 
-	data := []byte("test image data")
 	url, err := client.UploadImage(context.Background(), data, "test.jpg")
 	if err != nil {
 		t.Fatalf("UploadImage() error = %v", err)

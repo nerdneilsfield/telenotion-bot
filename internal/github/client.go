@@ -3,7 +3,9 @@ package github
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,8 +43,11 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) 
 		return "", fmt.Errorf("github repo and branch are required")
 	}
 
-	path := joinPath(c.pathPrefix, filename)
-	url := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", c.repo, path)
+	hash := sha256.Sum256(data)
+	hashHex := hex.EncodeToString(hash[:])
+	if len(hashHex) > 8 {
+		hashHex = hashHex[:8]
+	}
 
 	payload := createFileRequest{
 		Message: "upload image",
@@ -57,6 +62,10 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename string) 
 
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
+		namedFile := applyHashSuffix(filename, hashHex, attempt)
+		path := joinPath(c.pathPrefix, namedFile)
+		url := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", c.repo, path)
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
 		if err != nil {
 			return "", err
@@ -100,4 +109,24 @@ func joinPath(prefix, name string) string {
 		return trimmed + name
 	}
 	return trimmed + "/" + name
+}
+
+func applyHashSuffix(filename string, hash string, attempt int) string {
+	ext := ""
+	name := filename
+	if idx := strings.LastIndex(filename, "."); idx > 0 {
+		name = filename[:idx]
+		ext = filename[idx:]
+	}
+
+	suffix := hash
+	if attempt > 0 {
+		suffix = fmt.Sprintf("%s-%d", hash, attempt)
+	}
+
+	if name == "" {
+		return suffix + ext
+	}
+
+	return fmt.Sprintf("%s-%s%s", name, suffix, ext)
 }
