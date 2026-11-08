@@ -73,6 +73,19 @@
 
 ---
 
+## 通过 Homebrew / Scoop 安装
+
+```bash
+# macOS / Linux
+brew install --cask nerdneilsfield/apps/telenotion-bot
+```
+
+```powershell
+# Windows
+scoop bucket add nerdneilsfield https://github.com/nerdneilsfield/homebrew-apps
+scoop install nerdneilsfield/telenotion-bot
+```
+
 ## 🚀 5 分钟快速上手
 
 ### 方式一：下载运行（推荐新手）
