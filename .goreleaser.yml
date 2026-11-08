@@ -106,3 +106,33 @@ changelog:
       order: 400
     - title: Other work
       order: 9999
+
+# Publish to the nerdneilsfield/homebrew-apps tap and Scoop bucket.
+homebrew_casks:
+  - name: telenotion-bot
+    homepage: https://github.com/nerdneilsfield/telenotion-bot
+    description: Telegram and Discord bot that captures messages into a Notion database
+    binaries:
+      - telenotion-bot
+    directory: Casks
+    repository:
+      owner: nerdneilsfield
+      name: homebrew-apps
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    hooks:
+      post:
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/telenotion-bot"]
+          end
+
+scoops:
+  - name: telenotion-bot
+    homepage: https://github.com/nerdneilsfield/telenotion-bot
+    description: Telegram and Discord bot that captures messages into a Notion database
+    license: MIT
+    directory: bucket
+    repository:
+      owner: nerdneilsfield
+      name: homebrew-apps
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
