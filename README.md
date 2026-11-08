@@ -75,6 +75,19 @@ Listen... Every time you see something useful on Telegram or Discord, do you fin
 
 ---
 
+## Homebrew / Scoop
+
+```bash
+# macOS / Linux
+brew install --cask nerdneilsfield/apps/telenotion-bot
+```
+
+```powershell
+# Windows
+scoop bucket add nerdneilsfield https://github.com/nerdneilsfield/homebrew-apps
+scoop install nerdneilsfield/telenotion-bot
+```
+
 ## 🚀 Get Started in 5 Minutes
 
 ### Option 1: Download & Run (Recommended for Beginners)
